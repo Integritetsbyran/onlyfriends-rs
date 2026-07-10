@@ -1,5 +1,3 @@
-use std::env;
-
 use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity};
 use serde::{Deserialize, Serialize};
@@ -76,7 +74,6 @@ pub fn open_post(
 ) -> crate::Result<String> {
     let content_key = SealedBox::open(&recipient.dh_secret(), &env.sealed_content_key)?;
 
-    use ed25519_dalek::Verifier;
     let vk = ed25519_dalek::VerifyingKey::from_bytes(&author_pub.sign_pub)
         .map_err(|_| crate::Error::BadKey)?;
     let sig_bytes: [u8; 64] = env
