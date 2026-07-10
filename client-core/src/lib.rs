@@ -25,20 +25,27 @@ pub fn mailbox_address(pairwise_root: &[u8; 32], direction: u8, epoch: u64) -> S
     hex::encode(addr_bytes)
 }
 
+pub fn my_direction(me: &keystone::PublicIdentity, friend: &keystone::PublicIdentity) -> u8 {
+    if me.dh_pub <= friend.dh_pub { 0 } else { 1 }
+}
+
 pub async fn send_post(
     relay: &RelayClient,
     author: &keystone::Identity,
     body: &str,
-    friend: &keystone::Friend,
-    direction: u8,
+    friends: &[keystone::Friend],
 ) -> reqwest::Result<()> {
-    let envelopes = keystone::post::create_post(author, body, &[friend.public.clone()]);
-    let bytes = postcard::to_allocvec(&envelopes[0]).expect("serializes");
+    let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
+    let envelopes = keystone::post::create_post(author, body, &recipients);
 
-    let epoch = epoch_now(60 * 60 * 24);
-    let addr = mailbox_address(&friend.pairwise_root, direction, epoch);
+    for (friend, envelope) in friends.iter().zip(envelopes.iter()) {
+        let bytes = postcard::to_allocvec(envelope).expect("serializes");
+        let epoch = epoch_now(60 * 60 * 24);
+        let addr = mailbox_address(&friend.pairwise_root, my_direction(&author.public(), &friend.public), epoch);
 
-    relay.post_item(&addr, &bytes).await
+        relay.post_item(&addr, &bytes).await?;
+    }
+    Ok(())
 }
 
 pub async fn fetch_posts(
