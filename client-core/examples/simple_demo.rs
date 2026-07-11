@@ -1,51 +1,27 @@
 #[tokio::main]
-async fn main() {
-    let alice_storage = client_core::storage::Storage::open("alice.sqlite").unwrap();
-    let alice = client_core::load_or_create_identity(&alice_storage);
-    let bob_storage = client_core::storage::Storage::open("bob.sqlite").unwrap();
-    let bob = client_core::load_or_create_identity(&bob_storage);
-    let carl_storage = client_core::storage::Storage::open("carl.sqlite").unwrap();
-    let carl = client_core::load_or_create_identity(&carl_storage);
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let alice = client_core::Account::open("alice.sqlite", "http://127.0.0.1:3000")?;
+    let bob = client_core::Account::open("bob.sqlite", "http://127.0.0.1:3000")?;
+    let carl = client_core::Account::open("carl.sqlite", "http://127.0.0.1:3000")?;
 
     println!("Identities generated for two users.");
 
-    // pretend they exchanged cards via QR already:
-    let alice_friend_of_bob = client_core::add_friend(&bob_storage, &bob, &alice.public(), "Alice");
-    let bob_friend_of_alice = client_core::add_friend(&alice_storage, &alice, &bob.public(), "Bob");
-    let carl_friend_of_alice = client_core::add_friend(&alice_storage, &alice, &carl.public(), "Carl");
-    let alice_friend_of_carl = client_core::add_friend(&carl_storage, &carl, &alice.public(), "Alice");
+    alice.add_friend(&bob.identity.public(), "Bob")?;
+    bob.add_friend(&alice.identity.public(), "Alice")?;
+    alice.add_friend(&carl.identity.public(), "Carl")?;
+    carl.add_friend(&alice.identity.public(), "Alice")?;
 
     println!("Exchanged the tokens via QR or similar");
 
-    let relay = client_core::relay_client::RelayClient::new("http://127.0.0.1:3000");
+    alice.send_post("hello over the wire!").await.unwrap();
 
-    println!("Connected to the relay");
+    println!("Alice posts into friends");
 
-    // Alice posts to Bob's mailbox.
-    client_core::send_post(
-        &relay,
-        &alice,
-        "hello over the wire!",
-        &[bob_friend_of_alice, carl_friend_of_alice],
-    )
-    .await
-    .unwrap();
+    let bob_new_posts = bob.sync().await?;
+    println!("Bob sees: {bob_new_posts:?}");
 
-    println!("Alice posts into bobs mailbox");
+    let carl_new_posts = carl.sync().await?;
+    println!("Carl sees: {carl_new_posts:?}");
 
-    // Bob fetches and decrypts.
-    let posts = client_core::fetch_posts(&relay, &bob, &alice.public(), &alice_friend_of_bob, client_core::my_direction(&alice.public(), &bob.public()), 2)
-        .await
-        .unwrap();
-
-    println!("Bob sees: {posts:?}");
-    assert_eq!(posts, vec!["hello over the wire!".to_string()]);
-
-    let posts =
-        client_core::fetch_posts(&relay, &carl, &alice.public(), &alice_friend_of_carl, client_core::my_direction(&alice.public(), &carl.public()), 2)
-            .await
-            .unwrap();
-
-    println!("Carl sees: {posts:?}");
-    assert_eq!(posts, vec!["hello over the wire!".to_string()]);
+    Ok(())
 }
