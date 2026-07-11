@@ -1,6 +1,29 @@
 pub mod relay_client;
+pub mod storage;
 
-use crate::relay_client::RelayClient;
+use crate::{relay_client::RelayClient, storage::Storage};
+
+pub fn load_or_create_identity(storage: &Storage) -> keystone::Identity {
+    match storage.load_identity() {
+        Some(id) => id,
+        None => {
+            let id = keystone::Identity::generate();
+            storage.save_identity(&id).unwrap();
+            id
+        }
+    }
+}
+
+pub fn add_friend(
+    storage: &Storage,
+    me: &keystone::Identity,
+    their: &keystone::PublicIdentity,
+    nickname: &str,
+) -> keystone::Friend {
+    let friend = keystone::friend::add_friend(me, their, nickname);
+    storage.save_friend(&friend).unwrap();
+    friend
+}
 
 pub fn epoch_now(seconds_per_epoch: u64) -> u64 {
     let now = std::time::SystemTime::now()
@@ -41,7 +64,11 @@ pub async fn send_post(
     for (friend, envelope) in friends.iter().zip(envelopes.iter()) {
         let bytes = postcard::to_allocvec(envelope).expect("serializes");
         let epoch = epoch_now(60 * 60 * 24);
-        let addr = mailbox_address(&friend.pairwise_root, my_direction(&author.public(), &friend.public), epoch);
+        let addr = mailbox_address(
+            &friend.pairwise_root,
+            my_direction(&author.public(), &friend.public),
+            epoch,
+        );
 
         relay.post_item(&addr, &bytes).await?;
     }
@@ -63,7 +90,8 @@ pub async fn fetch_posts(
 
     for e in start..=current {
         let addr = mailbox_address(&friend.pairwise_root, direction, e);
-        let items = relay.get_items(&addr, 0).await?;
+        let after = storage.get_cursor(&friend.public.sign_pub, direction, e);
+        let items = relay.get_items(&addr, after).await?;
 
         for item in items {
             let Ok(envelope) = postcard::from_bytes::<keystone::PostEnvelope>(&item) else {
