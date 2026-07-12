@@ -4,9 +4,13 @@ use std::{
 };
 
 use axum::{
-    Json, Router, extract::{Path, Query, State}, routing::post,
+    Json, Router,
+    extract::{Path, Query, State},
+    routing::post,
 };
+use clap::Parser;
 use serde::{Deserialize, Serialize};
+use tracing_subscriber::EnvFilter;
 
 #[derive(Default)]
 struct Store {
@@ -70,15 +74,29 @@ async fn get_mailbox(
     Json(GetItemsResponse { items_b64 })
 }
 
+#[derive(Parser)]
+struct Opt {
+    #[clap(long, env = "RUST_LOG", default_value = "debug")]
+    log_level: String,
+}
+
 #[tokio::main]
 async fn main() {
+    let opt = Opt::parse();
+
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(&opt.log_level))
+        .init();
+
     let store: SharedStore = Arc::new(Mutex::new(Store::default()));
 
     let app = Router::new()
         .route("/mailbox/{addr}", post(post_mailbox).get(get_mailbox))
         .with_state(store);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.unwrap();
-    println!("relay listening on http://127.0.0.1:3000");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
+    tracing::info!("relay listening on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }
