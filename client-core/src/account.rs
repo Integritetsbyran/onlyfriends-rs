@@ -1,3 +1,5 @@
+use keystone::ResponseBody::{Comment, Reaction};
+
 use crate::{RelayClient, Storage, epoch_now, mailbox_address, my_direction};
 
 pub struct Account {
@@ -10,6 +12,51 @@ pub struct Account {
 pub struct SyncResult {
     pub new_posts: Vec<String>,
     pub updated_profiles: Vec<keystone::Profile>,
+    pub new_responses: Vec<keystone::response::ResponseInner>,
+}
+
+impl SyncResult {
+    pub fn new() -> SyncResult {
+        SyncResult {
+            new_posts: Vec::new(),
+            updated_profiles: Vec::new(),
+            new_responses: Vec::new(),
+        }
+    }
+
+    pub fn merge(&mut self, other: SyncResult) {
+        self.new_posts.extend(other.new_posts);
+        self.updated_profiles.extend(other.updated_profiles);
+        self.new_responses.extend(other.new_responses);
+    }
+}
+
+impl Default for SyncResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub struct FeedPost {
+    pub id: [u8; 16],
+    pub author: [u8; 32],
+    pub created_at: u64,
+    pub body: String, // already decrypted
+    pub reactions: Vec<FeedReaction>,
+    pub comments: Vec<FeedComment>,
+}
+
+#[derive(Debug)]
+pub struct FeedReaction {
+    pub author: [u8; 32],
+    pub emoji: String,
+}
+
+#[derive(Debug)]
+pub struct FeedComment {
+    pub author: [u8; 32],
+    pub text: String, // already decrypted
 }
 
 impl Account {
@@ -34,10 +81,15 @@ impl Account {
         Ok(friend)
     }
 
-    pub async fn send_post(&self, body: &str) -> crate::Result<()> {
+    pub async fn send_post(&self, body: &str) -> crate::Result<[u8; 16]> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
         let posts = keystone::post::create_post(&self.identity, body, &recipients);
+        let post_id = posts.first().map(|p| p.post.id).unwrap_or([0u8; 16]);
+
+        if let Some(first) = posts.first() {
+            self.storage.save_post(&first.post, body)?;
+        }
 
         for (friend, post) in friends.iter().zip(posts.iter()) {
             let envelope: keystone::Envelope = keystone::Envelope::Post(post.clone());
@@ -51,7 +103,7 @@ impl Account {
 
             self.relay.post_item(&addr, &bytes).await?;
         }
-        Ok(())
+        Ok(post_id)
     }
 
     pub async fn process_mailbox(&self, friend: &keystone::Friend) -> crate::Result<SyncResult> {
@@ -59,8 +111,7 @@ impl Account {
         let current = epoch_now(60 * 60 * 24);
         let start = current.saturating_sub(7);
 
-        let mut new_posts = Vec::new();
-        let mut updated_profiles = Vec::new();
+        let mut sync_results = SyncResult::new();
 
         for e in start..=current {
             let addr = mailbox_address(&friend.pairwise_root, direction, e);
@@ -81,7 +132,9 @@ impl Account {
                         else {
                             continue;
                         };
-                        new_posts.push(text);
+                        if self.storage.save_post(&sealed_post.post, &text)? {
+                            sync_results.new_posts.push(text);
+                        }
                     }
                     keystone::Envelope::Profile(sealed) => {
                         let Ok(profile_bytes) =
@@ -103,11 +156,36 @@ impl Account {
                         let is_newer = existing.is_none_or(|old| profile.version > old.version);
                         if is_newer {
                             self.storage.save_profile(&profile)?;
-                            updated_profiles.push(profile);
+                            sync_results.updated_profiles.push(profile);
                         }
                     }
-                    keystone::Envelope::Response(_sealed_box) => todo!(),
-                    keystone::Envelope::Rebroadcast(_sealed_box) => todo!(),
+                    keystone::Envelope::Response(sealed_box) => {
+                        let Ok(rb) =
+                            keystone::response::open_and_vouch(&self.identity, &sealed_box)
+                        else {
+                            continue;
+                        };
+                        for f in self.storage.load_friends()? {
+                            let rb_bytes = postcard::to_allocvec(&rb)?;
+                            let resealed = keystone::SealedBox::seal(&f.public.dh_pub, &rb_bytes);
+                            self.post_envelope(&f, keystone::Envelope::Rebroadcast(resealed))
+                                .await?;
+                        }
+                        sync_results.new_responses.push(rb.inner.clone());
+                        self.save_response(rb)?;
+                    }
+                    keystone::Envelope::Rebroadcast(sealed_box) => {
+                        let Ok(rb) = keystone::response::open_rebroadcast(
+                            &self.identity,
+                            &friend.public.sign_pub,
+                            &sealed_box,
+                        ) else {
+                            continue;
+                        };
+
+                        sync_results.new_responses.push(rb.inner.clone());
+                        self.save_response(rb)?;
+                    }
                 }
             }
             if !items.is_empty() {
@@ -120,10 +198,21 @@ impl Account {
             }
         }
 
-        Ok(SyncResult {
-            new_posts,
-            updated_profiles,
-        })
+        Ok(sync_results)
+    }
+
+    fn save_response(&self, rb: keystone::response::ResponseRebroadcast) -> crate::Result<()> {
+        match rb.inner.body {
+            Reaction { emoji } => {
+                self.storage
+                    .save_response(&rb.inner.post_id, &rb.inner.author, 0, emoji.as_str())
+            }
+            Comment { text } => {
+                self.storage
+                    .save_response(&rb.inner.post_id, &rb.inner.author, 1, text.as_str())
+            }
+        }?;
+        Ok(())
     }
 
     /// Set/update my own profile and push it to every friend.
@@ -148,6 +237,21 @@ impl Account {
         Ok(())
     }
 
+    async fn post_envelope(
+        &self,
+        friend: &keystone::Friend,
+        envelope: keystone::Envelope,
+    ) -> crate::Result<()> {
+        let bytes = postcard::to_allocvec(&envelope)?;
+        let addr = mailbox_address(
+            &friend.pairwise_root,
+            my_direction(&self.identity.public(), &friend.public),
+            epoch_now(60 * 60 * 24),
+        );
+        self.relay.post_item(&addr, &bytes).await?;
+        Ok(())
+    }
+
     async fn send_my_profile_to(&self, friend: &keystone::Friend) -> crate::Result<()> {
         let Some(profile) = self
             .storage
@@ -161,32 +265,97 @@ impl Account {
             &profile_bytes,
         ));
 
-        let bytes = postcard::to_allocvec(&envelope)?;
-
-        let addr = mailbox_address(
-            &friend.pairwise_root,
-            my_direction(&self.identity.public(), &friend.public),
-            epoch_now(60 * 60 * 24),
-        );
-        self.relay.post_item(&addr, &bytes).await?;
+        self.post_envelope(friend, envelope).await?;
         Ok(())
+    }
+
+    pub async fn react(
+        &self,
+        post_id: [u8; 16],
+        post_author: &[u8; 32],
+        emoji: &str,
+    ) -> crate::Result<()> {
+        let Some(owner) = self.storage.load_friend_by_sign_pub(post_author)? else {
+            return Err("can't react to a post from someone who isn't my friend".into());
+        };
+        let inner = keystone::response::create_response(
+            &self.identity,
+            post_id,
+            Reaction {
+                emoji: emoji.to_string(),
+            },
+        );
+
+        let bytes = postcard::to_allocvec(&inner)?;
+        let sealed = keystone::SealedBox::seal(&owner.public.dh_pub, &bytes);
+        self.post_envelope(&owner, keystone::Envelope::Response(sealed))
+            .await
+    }
+
+    pub async fn comment(
+        &self,
+        post_id: [u8; 16],
+        post_author: &[u8; 32],
+        text: &str,
+    ) -> crate::Result<()> {
+        let Some(owner) = self.storage.load_friend_by_sign_pub(post_author)? else {
+            return Err("can't react to a post from someone who isn't my friend".into());
+        };
+        let inner = keystone::response::create_response(
+            &self.identity,
+            post_id,
+            Comment {
+                text: text.to_string(),
+            },
+        );
+
+        let bytes = postcard::to_allocvec(&inner)?;
+        let sealed = keystone::SealedBox::seal(&owner.public.dh_pub, &bytes);
+        self.post_envelope(&owner, keystone::Envelope::Response(sealed))
+            .await
+    }
+
+    pub fn load_feed(&self) -> crate::Result<Vec<FeedPost>> {
+        let posts = self.storage.load_posts()?;
+        let mut feed = Vec::new();
+        for p in posts {
+            let responses = self.storage.load_responses_for(&p.id)?;
+            let (reactions, comments): (Vec<_>, Vec<_>) =
+                responses.into_iter().partition(|r| r.kind == 0);
+            feed.push(FeedPost {
+                id: p.id,
+                author: p.author,
+                created_at: p.created_at,
+                body: p.body,
+                reactions: reactions
+                    .into_iter()
+                    .map(|r| FeedReaction {
+                        author: r.author,
+                        emoji: r.content,
+                    })
+                    .collect(),
+                comments: comments
+                    .into_iter()
+                    .map(|c| FeedComment {
+                        author: c.author,
+                        text: c.content,
+                    })
+                    .collect(),
+            });
+        }
+        Ok(feed)
     }
 
     pub async fn sync(&self) -> crate::Result<SyncResult> {
         let friends = self.storage.load_friends()?;
-        let mut all_new_posts = Vec::new();
-        let mut all_updated_profiles = Vec::new();
+        let mut all_sync_results = SyncResult::new();
 
         for friend in &friends {
             let sync_result = self.process_mailbox(friend).await?;
-            all_new_posts.extend(sync_result.new_posts);
-            all_updated_profiles.extend(sync_result.updated_profiles);
+            all_sync_results.merge(sync_result);
         }
 
-        Ok(SyncResult {
-            new_posts: all_new_posts,
-            updated_profiles: all_updated_profiles,
-        })
+        Ok(all_sync_results)
     }
 }
 

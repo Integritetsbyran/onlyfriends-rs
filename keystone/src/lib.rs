@@ -5,6 +5,7 @@ pub mod identity;
 pub mod labels;
 pub mod post;
 pub mod profile;
+pub mod response;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -12,6 +13,12 @@ pub enum Error {
     Signature, // signature didn't verify
     Serialize, // (de)serialization failed
     BadKey,    // malformed key/public value
+}
+
+impl From<postcard::Error> for crate::Error {
+    fn from(_: postcard::Error) -> Self {
+        crate::Error::Serialize
+    }
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -22,3 +29,4 @@ pub use friend::Friend;
 pub use identity::{Identity, PublicIdentity};
 pub use post::{Post, SealedPost};
 pub use profile::Profile;
+pub use response::ResponseBody;

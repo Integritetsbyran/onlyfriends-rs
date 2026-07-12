@@ -20,11 +20,19 @@ CREATE TABLE IF NOT EXISTS profiles (
     sig BLOB NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS seen_posts (
+CREATE TABLE IF NOT EXISTS posts (
     id BLOB PRIMARY KEY,       -- Post.id, dedupe key
     author BLOB NOT NULL,
     body TEXT NOT NULL,
     created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS responses (
+    post_id BLOB NOT NULL,
+    author BLOB NOT NULL,
+    kind INTEGER NOT NULL,       -- 0 = reaction, 1 = comment
+    content TEXT NOT NULL,       -- emoji string, or decrypted comment text
+    PRIMARY KEY (post_id, author, kind)
 );
 
 CREATE TABLE IF NOT EXISTS mailbox_cursors (
@@ -35,6 +43,19 @@ CREATE TABLE IF NOT EXISTS mailbox_cursors (
     PRIMARY KEY (friend_sign_pub, direction, epoch)
 );
 ";
+
+pub struct StoredPost {
+    pub id: [u8; 16],
+    pub author: [u8; 32],
+    pub body: String, // decrypted
+    pub created_at: u64,
+}
+
+pub struct StoredResponse {
+    pub author: [u8; 32],
+    pub kind: u8, // 0 reaction, 1 comment
+    pub content: String,
+}
 
 pub struct Storage {
     conn: rusqlite::Connection,
@@ -95,6 +116,38 @@ impl Storage {
         rows.collect()
     }
 
+    pub fn load_friend_by_sign_pub(
+        &self,
+        sign_pub: &[u8; 32],
+    ) -> rusqlite::Result<Option<keystone::Friend>> {
+        // same query shape as load_friends, but WHERE sign_pub = ?1, query_row instead of query_map
+        let result = self.conn.query_row(
+            "SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends WHERE sign_pub = ?1",
+            [sign_pub],
+            |r| {
+                let sign_pub: Vec<u8> = r.get(0)?;
+                let dh_pub: Vec<u8> = r.get(1)?;
+                let nickname: String = r.get(2)?;
+                let pairwise_root: Vec<u8> = r.get(3)?;
+
+                Ok(keystone::Friend {
+                    public: keystone::PublicIdentity {
+                        sign_pub: sign_pub.try_into().unwrap(),
+                        dh_pub: dh_pub.try_into().unwrap(),
+                    },
+                    nickname,
+                    pairwise_root: pairwise_root.try_into().unwrap(),
+                })
+            },
+        );
+
+        match result {
+            Ok(friend) => Ok(Some(friend)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn save_profile(&self, p: &keystone::Profile) -> rusqlite::Result<usize> {
         self.conn.execute(
             "INSERT OR REPLACE INTO profiles (owner, display_name, bio, version, sig)
@@ -123,6 +176,71 @@ impl Storage {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e),
         }
+    }
+
+    pub fn save_post(&self, post: &keystone::Post, body: &str) -> rusqlite::Result<bool> {
+        let rows = self.conn.execute(
+            "INSERT OR IGNORE INTO posts (id, author, body, created_at)
+         VALUES (?1, ?2, ?3, ?4)",
+            (&post.id[..], &post.author[..], body, post.created_at as i64),
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn load_posts(&self) -> rusqlite::Result<Vec<StoredPost>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
+        let rows = stmt.query_map([], |r| {
+            Ok(StoredPost {
+                id: r.get::<_, Vec<u8>>(0)?.try_into().map_err(|_| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Blob,
+                        "bad id length".into(),
+                    )
+                })?,
+                author: r.get::<_, Vec<u8>>(1)?.try_into().map_err(|_| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1,
+                        rusqlite::types::Type::Blob,
+                        "bad author length".into(),
+                    )
+                })?,
+                body: r.get(2)?,
+                created_at: r.get::<_, i64>(3)? as u64,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn save_response(
+        &self,
+        post_id: &[u8; 16],
+        author: &[u8; 32],
+        kind: u8,
+        content: &str,
+    ) -> rusqlite::Result<bool> {
+        let rows = self.conn.execute(
+            "INSERT OR IGNORE INTO responses (post_id, author, kind, content)
+         VALUES (?1, ?2, ?3, ?4)",
+            (&post_id[..], &author[..], kind, content),
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn load_responses_for(&self, post_id: &[u8; 16]) -> rusqlite::Result<Vec<StoredResponse>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT author, kind, content FROM responses WHERE post_id = ?1")?;
+        let rows = stmt.query_map([post_id], |r| {
+            Ok(StoredResponse {
+                author: r.get(0)?,
+                kind: r.get(1)?,
+                content: r.get(2)?,
+            })
+        })?;
+        rows.collect()
     }
 
     pub fn get_cursor(&self, friend_sign_pub: &[u8; 32], direction: u8, epoch: u64) -> usize {
