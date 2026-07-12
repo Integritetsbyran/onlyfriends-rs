@@ -17,7 +17,11 @@ impl Account {
             relay,
         })
     }
-    pub fn add_friend(&self, their: &keystone::PublicIdentity, nickname: &str) -> crate::Result<keystone::Friend> {
+    pub fn add_friend(
+        &self,
+        their: &keystone::PublicIdentity,
+        nickname: &str,
+    ) -> crate::Result<keystone::Friend> {
         let friend = keystone::friend::add_friend(&self.identity, their, nickname);
         self.storage.save_friend(&friend)?;
         Ok(friend)
@@ -47,7 +51,7 @@ impl Account {
         author_pub: &keystone::PublicIdentity,
         friend: &keystone::Friend,
         lookback_epochs: u64,
-    ) -> crate::Result<Vec<String>>{
+    ) -> crate::Result<Vec<String>> {
         let direction = my_direction(author_pub, &self.identity.public());
         let current = epoch_now(60 * 60 * 24);
         let start = current.saturating_sub(lookback_epochs);
@@ -56,7 +60,9 @@ impl Account {
 
         for e in start..=current {
             let addr = mailbox_address(&friend.pairwise_root, direction, e);
-            let after = self.storage.get_cursor(&friend.public.sign_pub, direction, e);
+            let after = self
+                .storage
+                .get_cursor(&friend.public.sign_pub, direction, e);
             let items = self.relay.get_items(&addr, after).await?;
 
             for item in items {
@@ -64,7 +70,8 @@ impl Account {
                     continue;
                 };
 
-                let Ok(text) = keystone::post::open_post(&self.identity, author_pub, &envelope) else {
+                let Ok(text) = keystone::post::open_post(&self.identity, author_pub, &envelope)
+                else {
                     continue;
                 };
 

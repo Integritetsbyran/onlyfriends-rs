@@ -31,7 +31,7 @@ pub fn add_friend(me: &Identity, their: &PublicIdentity, nickname: &str) -> Frie
     }
 }
 
-#[cfg(test)] 
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::identity::Identity;
@@ -43,5 +43,4 @@ mod tests {
         let b_sees_a = add_friend(&b, &a.public(), "A");
         assert_eq!(a_sees_b.pairwise_root, b_sees_a.pairwise_root);
     }
-
 }

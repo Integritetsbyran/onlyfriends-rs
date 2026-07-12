@@ -47,10 +47,8 @@ impl PublicIdentity {
 
     pub fn from_bytes(bytes: &[u8]) -> crate::Result<PublicIdentity> {
         postcard::from_bytes(bytes).map_err(|_| crate::Error::Serialize)
-
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -59,16 +57,15 @@ mod tests {
     #[test]
     fn same_seed_same_identity() {
         let seed = crypto::random_bytes();
-        assert_eq!(Identity::from_seed(seed).public(), Identity::from_seed(seed).public())
-
+        assert_eq!(
+            Identity::from_seed(seed).public(),
+            Identity::from_seed(seed).public()
+        )
     }
 
     #[test]
     fn id_survives_qr_round_trip() {
         let id = Identity::generate().public();
         assert_eq!(PublicIdentity::from_bytes(&id.to_bytes()).unwrap(), id)
-
     }
-
 }
-
