@@ -13,7 +13,7 @@ pub struct Post {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PostEnvelope {
+pub struct SealedPost {
     pub post: Post,
     pub sealed_content_key: SealedBox,
 }
@@ -35,7 +35,7 @@ pub fn create_post(
     author: &Identity,
     body: &str,
     recipients: &[PublicIdentity],
-) -> Vec<PostEnvelope> {
+) -> Vec<SealedPost> {
     use ed25519_dalek::Signer;
 
     let content_key: [u8; 32] = crypto::random_bytes();
@@ -55,10 +55,10 @@ pub fn create_post(
     let sig = author.signing_key().sign(&post.signing_bytes());
     post.sig = sig.to_bytes().to_vec();
 
-    let mut envelopes: Vec<PostEnvelope> = vec![];
+    let mut envelopes: Vec<SealedPost> = vec![];
     for r in recipients.iter() {
         let sealed = SealedBox::seal(&r.dh_pub, &content_key);
-        envelopes.push(PostEnvelope {
+        envelopes.push(SealedPost {
             post: post.clone(),
             sealed_content_key: sealed,
         });
@@ -70,7 +70,7 @@ pub fn create_post(
 pub fn open_post(
     recipient: &Identity,
     author_pub: &PublicIdentity,
-    env: &PostEnvelope,
+    env: &SealedPost,
 ) -> crate::Result<String> {
     let content_key = SealedBox::open(&recipient.dh_secret(), &env.sealed_content_key)?;
 

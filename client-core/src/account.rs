@@ -30,10 +30,11 @@ impl Account {
     pub async fn send_post(&self, body: &str) -> crate::Result<()> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
-        let envelopes = keystone::post::create_post(&self.identity, body, &recipients);
+        let posts = keystone::post::create_post(&self.identity, body, &recipients);
 
-        for (friend, envelope) in friends.iter().zip(envelopes.iter()) {
-            let bytes = postcard::to_allocvec(envelope)?;
+        for (friend, post) in friends.iter().zip(posts.iter()) {
+            let envelope: keystone::Envelope = keystone::Envelope::Post(post.clone());
+            let bytes = postcard::to_allocvec(&envelope)?;
             let epoch = epoch_now(60 * 60 * 24);
             let addr = mailbox_address(
                 &friend.pairwise_root,
@@ -66,16 +67,21 @@ impl Account {
             let items = self.relay.get_items(&addr, after).await?;
 
             for item in items {
-                let Ok(envelope) = postcard::from_bytes::<keystone::PostEnvelope>(&item) else {
+                let Ok(envelope) = postcard::from_bytes::<keystone::Envelope>(&item) else {
                     continue;
                 };
 
-                let Ok(text) = keystone::post::open_post(&self.identity, author_pub, &envelope)
-                else {
-                    continue;
-                };
-
-                results.push(text);
+                match envelope {
+                    keystone::Envelope::Post(sealed_post) => {
+                        let Ok(text) =
+                            keystone::post::open_post(&self.identity, author_pub, &sealed_post)
+                        else {
+                            continue;
+                        };
+                        results.push(text);
+                    }
+                    _ => continue,
+                }
             }
         }
 
