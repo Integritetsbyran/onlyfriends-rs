@@ -70,7 +70,7 @@ impl Account {
             let items = self.relay.get_items(&addr, after).await?;
 
             for item in &items {
-                let Ok(envelope) = postcard::from_bytes::<keystone::Envelope>(&item) else {
+                let Ok(envelope) = postcard::from_bytes::<keystone::Envelope>(item) else {
                     continue;
                 };
 
@@ -100,7 +100,7 @@ impl Account {
                         }
 
                         let existing = self.storage.load_profile(&profile.owner)?;
-                        let is_newer = existing.map_or(true, |old| profile.version > old.version);
+                        let is_newer = existing.is_none_or(|old| profile.version > old.version);
                         if is_newer {
                             self.storage.save_profile(&profile)?;
                             updated_profiles.push(profile);
