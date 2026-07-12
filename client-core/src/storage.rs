@@ -1,4 +1,4 @@
-const SCHEMA_SQL: &'static str = "
+const SCHEMA_SQL: &str = "
 CREATE TABLE IF NOT EXISTS identity (
     id INTEGER PRIMARY KEY CHECK (id = 0),  -- singleton row
     master_seed BLOB NOT NULL
@@ -61,7 +61,7 @@ impl Storage {
                 r.get(0)
             }) {
             Ok(seed) => Some(keystone::Identity::from_seed(seed)),
-            Err(_) => None
+            Err(_) => None,
         }
     }
 

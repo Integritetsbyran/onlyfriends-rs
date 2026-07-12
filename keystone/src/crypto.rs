@@ -52,7 +52,7 @@ pub struct SealedBox {
 
 impl SealedBox {
     pub fn seal(recipient_dh_pub: &[u8; 32], secret: &[u8]) -> SealedBox {
-        let eph = x25519_dalek::EphemeralSecret::random_from_rng(&mut OsRng);
+        let eph = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
         let e_pub = x25519_dalek::PublicKey::from(&eph);
         let shared = eph.diffie_hellman(&x25519_dalek::PublicKey::from(*recipient_dh_pub));
         let info = [labels::SEAL, &e_pub.to_bytes(), recipient_dh_pub].concat();
