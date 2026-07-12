@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::post::SealedPost;
 use crate::crypto::SealedBox;
+use crate::post::SealedPost;
 
 #[derive(Serialize, Deserialize)]
 pub enum Envelope {

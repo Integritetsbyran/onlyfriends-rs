@@ -23,14 +23,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // --- Bob sees both the post and the profile ---
     let bob_result = bob.sync().await?;
     println!("Bob posts: {:?}", bob_result.new_posts);
-    assert_eq!(bob_result.new_posts, vec!["hello over the wire!".to_string()]);
+    assert_eq!(
+        bob_result.new_posts,
+        vec!["hello over the wire!".to_string()]
+    );
     assert_eq!(bob_result.updated_profiles.len(), 1);
     assert_eq!(bob_result.updated_profiles[0].display_name, "Alice");
 
     // --- Carl sees the same ---
     let carl_result = carl.sync().await?;
     println!("Carl posts: {:?}", carl_result.new_posts);
-    assert_eq!(carl_result.new_posts, vec!["hello over the wire!".to_string()]);
+    assert_eq!(
+        carl_result.new_posts,
+        vec!["hello over the wire!".to_string()]
+    );
     assert_eq!(carl_result.updated_profiles.len(), 1);
     assert_eq!(carl_result.updated_profiles[0].display_name, "Alice");
 

@@ -111,8 +111,12 @@ impl Account {
                 }
             }
             if !items.is_empty() {
-                self.storage
-                    .set_cursor(&friend.public.sign_pub, direction, e, after + items.len())?;
+                self.storage.set_cursor(
+                    &friend.public.sign_pub,
+                    direction,
+                    e,
+                    after + items.len(),
+                )?;
             }
         }
 
