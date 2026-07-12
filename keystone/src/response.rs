@@ -227,8 +227,7 @@ mod tests {
             &carl,
             [2u8; 16],
             ResponseBody::Comment {
-                text_ct: vec![9, 9, 9],
-                nonce: [0u8; 24],
+                text: "cool comment".to_string(),
             },
         );
         let sealed = seal_response(&inner, &alice.public().dh_pub);
@@ -237,7 +236,7 @@ mod tests {
         let received = open_rebroadcast(&bob, &alice.public().sign_pub, &sealed_to_bob).unwrap();
 
         match received.inner.body {
-            ResponseBody::Comment { text_ct, .. } => assert_eq!(text_ct, vec![9, 9, 9]),
+            ResponseBody::Comment { text } => assert_eq!(text, "cool comment".to_string()),
             _ => panic!("expected a comment"),
         }
     }
