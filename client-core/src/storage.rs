@@ -95,6 +95,36 @@ impl Storage {
         rows.collect()
     }
 
+    pub fn save_profile(&self, p: &keystone::Profile) -> rusqlite::Result<usize> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO profiles (owner, display_name, bio, version, sig)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+            (&p.owner[..], &p.display_name, &p.bio, p.version, &p.sig),
+        )
+    }
+
+    pub fn load_profile(&self, owner: &[u8; 32]) -> rusqlite::Result<Option<keystone::Profile>> {
+        let result = self.conn.query_row(
+            "SELECT owner, display_name, bio, version, sig FROM profiles WHERE owner = ?1",
+            [&owner[..]],
+            |r| {
+                Ok(keystone::Profile {
+                    owner: r.get(0)?,
+                    display_name: r.get(1)?,
+                    bio: r.get(2)?,
+                    version: r.get(3)?,
+                    sig: r.get(4)?,
+                })
+            },
+        );
+
+        match result {
+            Ok(profile) => Ok(Some(profile)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn get_cursor(&self, friend_sign_pub: &[u8; 32], direction: u8, epoch: u64) -> usize {
         self.conn
             .query_row(
