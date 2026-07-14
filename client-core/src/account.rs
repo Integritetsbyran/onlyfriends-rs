@@ -84,13 +84,21 @@ impl Account {
     pub async fn send_post(&self, body: &str) -> crate::Result<[u8; 16]> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
-        let posts = keystone::post::create_post(&self.identity, body, &recipients);
-        let post_id = posts.first().map(|p| p.post.id).unwrap_or([0u8; 16]);
 
+        // Always include self as a recipient so `create_post` always returns at
+        // least one SealedPost.  That gives us the Post metadata (id, timestamp,
+        // signature) needed to persist the post locally regardless of whether the
+        // user has any friends yet.
+        let mut recipients_with_self = recipients.clone();
+        recipients_with_self.push(self.identity.public());
+        let posts = keystone::post::create_post(&self.identity, body, &recipients_with_self);
+
+        let post_id = posts.first().map(|p| p.post.id).unwrap_or([0u8; 16]);
         if let Some(first) = posts.first() {
             self.storage.save_post(&first.post, body)?;
         }
 
+        // Send only to actual friends; the trailing self-sealed post is unused.
         for (friend, post) in friends.iter().zip(posts.iter()) {
             let envelope: keystone::Envelope = keystone::Envelope::Post(post.clone());
             let bytes = postcard::to_allocvec(&envelope)?;
