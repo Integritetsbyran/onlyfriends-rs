@@ -1,11 +1,12 @@
 use dioxus::prelude::*;
+use keystone::post::PostId;
 
 use crate::context;
 
 /// Emoji reaction bar displayed under a post.
 #[component]
 pub fn ReactionBar(
-    post_id: [u8; 16],
+    post_id: PostId,
     post_author: [u8; 32],
     reactions: Vec<client_core::FeedReaction>,
 ) -> Element {

@@ -1,4 +1,7 @@
-use keystone::ResponseBody::{Comment, Reaction};
+use keystone::{
+    ResponseBody::{Comment, Reaction},
+    post::{PostContent, PostId},
+};
 
 use crate::{RelayClient, Storage, epoch_now, mailbox_address, my_direction};
 
@@ -10,7 +13,7 @@ pub struct Account {
 
 #[derive(Debug)]
 pub struct SyncResult {
-    pub new_posts: Vec<String>,
+    pub new_posts: Vec<PostContent>,
     pub updated_profiles: Vec<keystone::Profile>,
     pub new_responses: Vec<keystone::response::ResponseInner>,
 }
@@ -39,10 +42,10 @@ impl Default for SyncResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeedPost {
-    pub id: [u8; 16],
+    pub id: PostId,
     pub author: [u8; 32],
     pub created_at: u64,
-    pub body: String, // already decrypted
+    pub content: PostContent,
     pub reactions: Vec<FeedReaction>,
     pub comments: Vec<FeedComment>,
 }
@@ -81,7 +84,17 @@ impl Account {
         Ok(friend)
     }
 
-    pub async fn send_post(&self, body: &str) -> crate::Result<[u8; 16]> {
+    /// Send `post` to all friends.
+    ///
+    /// Returns the post id, or `None` if you have no friends.
+    pub async fn send_text_post(&self, body: impl Into<String>) -> crate::Result<Option<PostId>> {
+        self.send_post(&PostContent::from_body(body)).await
+    }
+
+    /// Send `post` to all friends.
+    ///
+    /// Returns the post id, or `None` if you have no friends.
+    pub async fn send_post(&self, post: &PostContent) -> crate::Result<Option<PostId>> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
@@ -91,11 +104,11 @@ impl Account {
         // user has any friends yet.
         let mut recipients_with_self = recipients.clone();
         recipients_with_self.push(self.identity.public());
-        let posts = keystone::post::create_post(&self.identity, body, &recipients_with_self);
+        let posts = keystone::post::seal_post(&self.identity, post, &recipients_with_self);
 
-        let post_id = posts.first().map(|p| p.post.id).unwrap_or([0u8; 16]);
+        let post_id = posts.first().map(|p| p.post.id);
         if let Some(first) = posts.first() {
-            self.storage.save_post(&first.post, body)?;
+            self.storage.save_post(&first.post, post)?;
         }
 
         // Send only to actual friends; the trailing self-sealed post is unused.
@@ -135,13 +148,13 @@ impl Account {
 
                 match envelope {
                     keystone::Envelope::Post(sealed_post) => {
-                        let Ok(text) =
+                        let Ok(post) =
                             keystone::post::open_post(&self.identity, &friend.public, &sealed_post)
                         else {
                             continue;
                         };
-                        if self.storage.save_post(&sealed_post.post, &text)? {
-                            sync_results.new_posts.push(text);
+                        if self.storage.save_post(&sealed_post.post, &post)? {
+                            sync_results.new_posts.push(post);
                         }
                     }
                     keystone::Envelope::Profile(sealed) => {
@@ -279,7 +292,7 @@ impl Account {
 
     pub async fn react(
         &self,
-        post_id: [u8; 16],
+        post_id: PostId,
         post_author: &[u8; 32],
         emoji: &str,
     ) -> crate::Result<()> {
@@ -302,7 +315,7 @@ impl Account {
 
     pub async fn comment(
         &self,
-        post_id: [u8; 16],
+        post_id: PostId,
         post_author: &[u8; 32],
         text: &str,
     ) -> crate::Result<()> {
@@ -330,11 +343,15 @@ impl Account {
             let responses = self.storage.load_responses_for(&p.id)?;
             let (reactions, comments): (Vec<_>, Vec<_>) =
                 responses.into_iter().partition(|r| r.kind == 0);
+
+            // TODO: also load post media
+            let content = PostContent::from_body(p.body);
+
             feed.push(FeedPost {
                 id: p.id,
                 author: p.author,
                 created_at: p.created_at,
-                body: p.body,
+                content,
                 reactions: reactions
                     .into_iter()
                     .map(|r| FeedReaction {
