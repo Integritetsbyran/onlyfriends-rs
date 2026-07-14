@@ -1,6 +1,6 @@
 use dioxus_native::prelude::*;
-use dioxus_router::{Link, Outlet, Routable, Router};
 use dioxus_router::hooks::use_navigator;
+use dioxus_router::{Link, Outlet, Routable, Router};
 
 use ui::{context, pages};
 
