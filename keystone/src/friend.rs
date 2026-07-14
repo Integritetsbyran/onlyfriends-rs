@@ -4,7 +4,7 @@ use crate::{
     labels,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Friend {
     pub public: PublicIdentity,
     pub nickname: String,

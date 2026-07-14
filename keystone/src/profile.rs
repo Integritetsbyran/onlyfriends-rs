@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Identity;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Profile {
     pub owner: [u8; 32],
     pub display_name: String,
