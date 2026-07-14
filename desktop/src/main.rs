@@ -1,5 +1,6 @@
-use dioxus::prelude::*;
+use dioxus_native::prelude::*;
 
+use dioxus_router::{Link, Outlet, Routable, Router};
 use ui::Navbar;
 use views::{Blog, Home};
 
@@ -18,7 +19,9 @@ enum Route {
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
 fn main() {
-    dioxus::launch(App);
+    // dioxus::launch(App);
+    // dixous_blitz::launch(App);
+    dioxus_native::launch(App);
 }
 
 #[component]
@@ -39,14 +42,8 @@ fn App() -> Element {
 fn DesktopNavbar() -> Element {
     rsx! {
         Navbar {
-            Link {
-                to: Route::Home {},
-                "Home"
-            }
-            Link {
-                to: Route::Blog { id: 1 },
-                "Blog"
-            }
+            Link { to: Route::Home {}, "Home" }
+            Link { to: Route::Blog { id: 1 }, "Blog" }
         }
 
         Outlet::<Route> {}

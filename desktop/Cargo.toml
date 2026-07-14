@@ -4,10 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dioxus = { workspace = true, features = ["router"] }
+# dioxus = { workspace = true, features = ["router"] }
+dioxus-native = { git = "https://github.com/DioxusLabs/blitz", features = ["prelude"] }
+dioxus-router = "0.7"
+dioxus = { version = "0.7", default-features = false }  # satisfies macro internals
+
 ui = { workspace = true }
 
 [features]
-default = ["desktop"]
-desktop = ["dioxus/desktop"]
+# default = ["desktop"]
+# desktop = ["dioxus/desktop"]
 
