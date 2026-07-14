@@ -10,7 +10,7 @@ use crate::{
 #[component]
 pub fn FeedPage() -> Element {
     let account = context::use_app_account();
-    let mut posts = use_signal(|| Vec::<client_core::FeedPost>::new());
+    let mut posts = use_signal(Vec::<client_core::FeedPost>::new);
     let mut syncing = use_signal(|| false);
     let mut sync_err = use_signal(String::new);
 
