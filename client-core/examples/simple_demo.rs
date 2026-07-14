@@ -1,3 +1,6 @@
+use client_core::account::SyncResult;
+use keystone::{media::Media, post::PostContent};
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for f in ["alice.sqlite", "bob.sqlite", "carl.sqlite"] {
@@ -15,24 +18,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Friends exchanged.");
 
     alice.set_profile("Alice", "hi from alice").await?;
-    let post_id = alice.send_post("hello over the wire!").await?;
+    let content = PostContent {
+        body: "hello over the wire!".to_string(),
+        media: vec![Media {
+            mime: "image/webp".parse().unwrap(),
+            bytes: include_bytes!("../../ui/ui-common/assets/icon.webp").to_vec(),
+        }],
+    };
+    let post_id = alice.send_post(&content).await?.expect("alice has friends");
     println!("Alice set profile and posted.");
 
     // --- Bob sees the post and the profile ---
     let bob_result = bob.sync().await?;
-    assert_eq!(
-        bob_result.new_posts,
-        vec!["hello over the wire!".to_string()]
-    );
+    assert_eq!(texts(&bob_result), vec!["hello over the wire!"]);
     assert_eq!(bob_result.updated_profiles[0].display_name, "Alice");
+    assert_eq!(bob_result.new_posts[0], content);
 
     // --- Carl sees the same ---
     let carl_result = carl.sync().await?;
-    assert_eq!(
-        carl_result.new_posts,
-        vec!["hello over the wire!".to_string()]
-    );
+    assert_eq!(texts(&carl_result), vec!["hello over the wire!"]);
     assert_eq!(carl_result.updated_profiles[0].display_name, "Alice");
+    assert_eq!(carl_result.new_posts[0], content);
 
     // --- profile edit propagates ---
     alice.set_profile("Alice B.", "updated bio").await?;
@@ -98,7 +104,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         let post = &feed[0];
         assert_eq!(post.id, post_id);
-        assert_eq!(post.body, "hello over the wire!");
+        assert_eq!(post.content.body, content.body);
+        // FIXME: media is not persisted to storage
+        // FIXME: assert_eq!(post.content, content);
 
         assert_eq!(post.reactions.len(), 1, "{name} should see Bob's reaction");
         assert_eq!(post.reactions[0].emoji, "👍");
@@ -117,4 +125,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("All checks passed!");
     Ok(())
+}
+
+fn texts(sync_result: &SyncResult) -> Vec<&str> {
+    sync_result
+        .new_posts
+        .iter()
+        .map(|p| p.body.as_str())
+        .collect()
 }

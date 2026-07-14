@@ -64,6 +64,9 @@ pub fn PostCard(post: client_core::FeedPost) -> Element {
     let age = format_age(post.created_at);
     let comment_count = post.comments.len();
 
+    // TODO: figure out how to render images
+    let _ = post.content.media;
+
     rsx! {
         div { class: "card post-card",
             div { class: "post-header",
@@ -71,7 +74,7 @@ pub fn PostCard(post: client_core::FeedPost) -> Element {
                 span { class: "post-age", "{age}" }
             }
 
-            p { class: "post-body", "{post.body}" }
+            p { class: "post-body", "{post.content.body}" }
 
             ReactionBar {
                 post_id: post.id,

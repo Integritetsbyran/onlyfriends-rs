@@ -22,7 +22,7 @@ pub fn NewPostForm(on_posted: EventHandler<()>) -> Element {
         posting.set(true);
         spawn(async move {
             let acc = arc.lock().await;
-            match acc.send_post(&text).await {
+            match acc.send_text_post(&text).await {
                 Ok(_) => {
                     body.set(String::new());
                     on_posted.call(());
