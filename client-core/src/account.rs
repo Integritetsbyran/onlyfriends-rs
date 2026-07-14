@@ -37,7 +37,7 @@ impl Default for SyncResult {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FeedPost {
     pub id: [u8; 16],
     pub author: [u8; 32],
@@ -47,13 +47,13 @@ pub struct FeedPost {
     pub comments: Vec<FeedComment>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FeedReaction {
     pub author: [u8; 32],
     pub emoji: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FeedComment {
     pub author: [u8; 32],
     pub text: String, // already decrypted
