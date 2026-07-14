@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["client-core", "keystone", "relay", "ui-common", "mobile", "web", "desktop"]
+members = ["client-core", "keystone", "relay", "ui/ui-common", "ui/mobile", "ui/web", "ui/desktop"]
 
 [workspace.dependencies]
 dioxus = { version = "0.7.3" }
@@ -22,7 +22,8 @@ tokio = "1"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 x25519-dalek = "2"
-ui = { path = "ui-common" }
+ui = { path = "ui/ui-common" }
+client-core = { path = "client-core" }
 
 [workspace.lints.clippy]
 allow_attributes = "warn"

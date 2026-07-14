@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 dioxus = { workspace = true }
-client-core = { path = "../client-core" }
+client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 
