@@ -7,3 +7,8 @@ pub mod pages;
 
 mod assets;
 pub use assets::APP_CSS;
+
+pub mod hero;
+pub use hero::Hero;
+pub mod navbar;
+pub use navbar::Navbar;
