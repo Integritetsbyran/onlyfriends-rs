@@ -10,9 +10,7 @@ use crate::{config, context};
 /// and calls `on_complete` so the caller can navigate away.
 #[component]
 pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
-    let mut relay_url = use_signal(|| {
-        config::load_relay_url().unwrap_or_else(|| "http://localhost:3000".to_string())
-    });
+    let mut relay_url = use_signal(|| "http://localhost:3000".to_string());
     let mut display_name = use_signal(String::new);
     let mut bio = use_signal(String::new);
     let mut error_msg = use_signal(String::new);
@@ -42,7 +40,6 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
                 Ok(acc) => {
                     // Best-effort: set the profile; ignore errors here — user can update later.
                     let _ = acc.set_profile(&name, &bio_text).await;
-                    let _ = config::save_relay_url(&relay);
                     account.set(Some(Arc::new(Mutex::new(acc))));
                     on_complete.call(());
                 }
