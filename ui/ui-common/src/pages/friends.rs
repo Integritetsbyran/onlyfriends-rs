@@ -11,7 +11,7 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 }
 
 fn hex_to_bytes(s: &str) -> Option<Vec<u8>> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return None;
     }
     (0..s.len())
@@ -26,7 +26,7 @@ fn hex_to_bytes(s: &str) -> Option<Vec<u8>> {
 #[component]
 pub fn FriendsPage() -> Element {
     let account = context::use_app_account();
-    let mut friends = use_signal(|| Vec::<client_core::Friend>::new());
+    let mut friends = use_signal(Vec::<client_core::Friend>::new);
     let mut own_hex = use_signal(String::new);
 
     // Load friends + own key on mount.
@@ -106,9 +106,7 @@ pub fn FriendsPage() -> Element {
             // Own identity card
             div { class: "card own-key-card",
                 h3 { "Your public key" }
-                p { class: "hint",
-                    "Share this with friends so they can add you."
-                }
+                p { class: "hint", "Share this with friends so they can add you." }
                 input {
                     r#type: "text",
                     class: "input key-input",
@@ -147,7 +145,11 @@ pub fn FriendsPage() -> Element {
                     class: "btn btn-primary",
                     disabled: *adding.read(),
                     onclick: add_friend,
-                    if *adding.read() { "Adding…" } else { "Add friend" }
+                    if *adding.read() {
+                        "Adding…"
+                    } else {
+                        "Add friend"
+                    }
                 }
             }
 
@@ -158,7 +160,8 @@ pub fn FriendsPage() -> Element {
                 }
                 for friend in friends.read().iter().cloned() {
                     FriendItem { friend }
-                }            }
+                }
+            }
         }
     }
 }
