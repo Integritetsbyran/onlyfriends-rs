@@ -1,7 +1,9 @@
-//! This crate contains all shared UI for the workspace.
+//! Shared UI components and pages for all platforms.
 
-mod hero;
-pub use hero::Hero;
+pub mod components;
+pub mod config;
+pub mod context;
+pub mod pages;
 
-mod navbar;
-pub use navbar::Navbar;
+mod assets;
+pub use assets::APP_CSS;
