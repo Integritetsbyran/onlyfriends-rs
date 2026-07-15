@@ -1,6 +1,9 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 use dioxus::prelude::*;
+use keystone::media::Media;
 
 use crate::components::{CommentList, ReactionBar};
 use crate::context;
@@ -28,6 +31,16 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
         let _ = write!(s, "{b:02x}");
         s
     })
+}
+
+/// Convert a [`Media`] into an web-compatible data-blob.
+///
+/// Expensive and ridiculous, but this seems to be the only way to load image bytes into dioxus.
+fn media_to_data_uri(media: &Media) -> String {
+    let b64 = STANDARD.encode(&media.bytes);
+    // TODO: filter unknown mime types?
+    let mime = media.mime.as_ref();
+    format!("data:{mime};base64,{b64}")
 }
 
 /// A single post card in the feed.
@@ -64,8 +77,8 @@ pub fn PostCard(post: client_core::FeedPost) -> Element {
     let age = format_age(post.created_at);
     let comment_count = post.comments.len();
 
-    // TODO: figure out how to render images
-    let _ = post.content.media;
+    // TODO: don't convert images in the hot render loop like this
+    let media: Vec<_> = post.content.media.iter().map(media_to_data_uri).collect();
 
     rsx! {
         div { class: "card post-card",
@@ -75,6 +88,16 @@ pub fn PostCard(post: client_core::FeedPost) -> Element {
             }
 
             p { class: "post-body", "{post.content.body}" }
+
+            if !media.is_empty() {
+                {media.iter().map(|media| {
+                    rsx! {
+                        img {
+                            src: "{media}",
+                        }
+                    }
+                })}
+            }
 
             ReactionBar {
                 post_id: post.id,
