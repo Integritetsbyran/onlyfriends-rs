@@ -21,7 +21,7 @@ pub fn FeedPage() -> Element {
             syncing.set(true);
             sync_err.set(String::new());
             spawn(async move {
-                let acc = arc.lock().await;
+                let mut acc = arc.lock().await;
                 if let Err(e) = acc.sync().await {
                     sync_err.set(format!("Sync error: {e}"));
                 }
@@ -39,7 +39,7 @@ pub fn FeedPage() -> Element {
         let acc_opt = account.read().as_ref().map(|a| a.clone());
         if let Some(arc) = acc_opt {
             spawn(async move {
-                let acc = arc.lock().await;
+                let mut acc = arc.lock().await;
                 if let Ok(feed) = acc.load_feed() {
                     posts.set(feed);
                 }
