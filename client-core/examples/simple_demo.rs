@@ -6,9 +6,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for f in ["alice.sqlite", "bob.sqlite", "carl.sqlite"] {
         let _ = std::fs::remove_file(f);
     }
-    let alice = client_core::Account::open("alice.sqlite", "http://127.0.0.1:3000")?;
-    let bob = client_core::Account::open("bob.sqlite", "http://127.0.0.1:3000")?;
-    let carl = client_core::Account::open("carl.sqlite", "http://127.0.0.1:3000")?;
+    let mut alice = client_core::Account::create_new("alice.sqlite", "http://127.0.0.1:3000")?;
+    let mut bob = client_core::Account::create_new("bob.sqlite", "http://127.0.0.1:3000")?;
+    let mut carl = client_core::Account::create_new("carl.sqlite", "http://127.0.0.1:3000")?;
+    let bob_id = bob.identity.public();
+    let carl_id = carl.identity.public();
     println!("Identities generated.");
 
     alice.add_friend(&bob.identity.public(), "Bob").await?;
@@ -94,7 +96,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     );
     println!("Re-sync correctly found nothing new.");
 
-    for (name, account) in [("Alice", &alice), ("Bob", &bob), ("Carl", &carl)] {
+    for (name, account) in [
+        ("Alice", &mut alice),
+        ("Bob", &mut bob),
+        ("Carl", &mut carl),
+    ] {
+        println!("Checking {name}s feed");
+
         let feed = account.load_feed()?;
         assert_eq!(
             feed.len(),
@@ -103,18 +111,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         );
 
         let post = &feed[0];
-        assert_eq!(post.id, post_id);
-        assert_eq!(post.content.body, content.body);
-        // FIXME: media is not persisted to storage
-        // FIXME: assert_eq!(post.content, content);
+        assert_eq!(post_id, post.id);
+        assert_eq!(content, post.content);
 
         assert_eq!(post.reactions.len(), 1, "{name} should see Bob's reaction");
         assert_eq!(post.reactions[0].emoji, "👍");
-        assert_eq!(post.reactions[0].author, bob.identity.public().sign_pub);
+        assert_eq!(post.reactions[0].author, bob_id.sign_pub);
 
         assert_eq!(post.comments.len(), 1, "{name} should see Carl's comment");
         assert_eq!(post.comments[0].text, "nice post!");
-        assert_eq!(post.comments[0].author, carl.identity.public().sign_pub);
+        assert_eq!(post.comments[0].author, carl_id.sign_pub);
 
         println!(
             "{name}'s feed: 1 post, {} reaction(s), {} comment(s) — matches.",

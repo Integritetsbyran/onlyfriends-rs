@@ -63,7 +63,20 @@ pub struct FeedComment {
 }
 
 impl Account {
-    pub fn open(db_path: &str, relay_url: &str) -> crate::Result<Account> {
+    pub fn open(db_path: &str, relay_url: &str) -> crate::Result<Option<Account>> {
+        let storage = Storage::open(db_path)?;
+        let Some(identity) = storage.load_identity() else {
+            return Ok(None);
+        };
+        let relay = RelayClient::new(relay_url);
+        Ok(Some(Account {
+            storage,
+            identity,
+            relay,
+        }))
+    }
+
+    pub fn create_new(db_path: &str, relay_url: &str) -> crate::Result<Account> {
         let storage = Storage::open(db_path)?;
         let identity = load_or_create_identity(&storage)?;
         let relay = RelayClient::new(relay_url);
@@ -73,6 +86,7 @@ impl Account {
             relay,
         })
     }
+
     pub async fn add_friend(
         &self,
         their: &keystone::PublicIdentity,
@@ -87,14 +101,17 @@ impl Account {
     /// Send `post` to all friends.
     ///
     /// Returns the post id, or `None` if you have no friends.
-    pub async fn send_text_post(&self, body: impl Into<String>) -> crate::Result<Option<PostId>> {
+    pub async fn send_text_post(
+        &mut self,
+        body: impl Into<String>,
+    ) -> crate::Result<Option<PostId>> {
         self.send_post(&PostContent::from_body(body)).await
     }
 
     /// Send `post` to all friends.
     ///
     /// Returns the post id, or `None` if you have no friends.
-    pub async fn send_post(&self, post: &PostContent) -> crate::Result<Option<PostId>> {
+    pub async fn send_post(&mut self, post: &PostContent) -> crate::Result<Option<PostId>> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
@@ -127,7 +144,10 @@ impl Account {
         Ok(post_id)
     }
 
-    pub async fn process_mailbox(&self, friend: &keystone::Friend) -> crate::Result<SyncResult> {
+    pub async fn process_mailbox(
+        &mut self,
+        friend: &keystone::Friend,
+    ) -> crate::Result<SyncResult> {
         let direction = my_direction(&friend.public, &self.identity.public());
         let current = epoch_now(60 * 60 * 24);
         let start = current.saturating_sub(7);
@@ -336,7 +356,7 @@ impl Account {
             .await
     }
 
-    pub fn load_feed(&self) -> crate::Result<Vec<FeedPost>> {
+    pub fn load_feed(&mut self) -> crate::Result<Vec<FeedPost>> {
         let posts = self.storage.load_posts()?;
         let mut feed = Vec::new();
         for p in posts {
@@ -344,8 +364,10 @@ impl Account {
             let (reactions, comments): (Vec<_>, Vec<_>) =
                 responses.into_iter().partition(|r| r.kind == 0);
 
-            // TODO: also load post media
-            let content = PostContent::from_body(p.body);
+            let content = PostContent {
+                body: p.body,
+                media: p.media,
+            };
 
             feed.push(FeedPost {
                 id: p.id,
@@ -371,7 +393,7 @@ impl Account {
         Ok(feed)
     }
 
-    pub async fn sync(&self) -> crate::Result<SyncResult> {
+    pub async fn sync(&mut self) -> crate::Result<SyncResult> {
         let friends = self.storage.load_friends()?;
         let mut all_sync_results = SyncResult::new();
 

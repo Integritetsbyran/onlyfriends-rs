@@ -1,4 +1,10 @@
-use keystone::post::{PostContent, PostId};
+use std::str::FromStr;
+
+use keystone::{
+    media::Media,
+    post::{PostContent, PostId},
+};
+use mime::Mime;
 
 const SCHEMA_SQL: &str = "
 CREATE TABLE IF NOT EXISTS identity (
@@ -29,6 +35,13 @@ CREATE TABLE IF NOT EXISTS posts (
     created_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS post_media (
+    id INTEGER PRIMARY KEY,
+    post_id BLOB NOT NULL REFERENCES posts(id),
+    mime TEXT NOT NULL,
+    bytes BLOB NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS responses (
     post_id BLOB NOT NULL,
     author BLOB NOT NULL,
@@ -51,6 +64,7 @@ pub struct StoredPost {
     pub author: [u8; 32],
     pub body: String, // decrypted
     pub created_at: u64,
+    pub media: Vec<Media>,
 }
 
 pub struct StoredResponse {
@@ -181,15 +195,15 @@ impl Storage {
     }
 
     pub fn save_post(
-        &self,
+        &mut self,
         encrypted: &keystone::EncryptedPost,
         post: &PostContent,
     ) -> rusqlite::Result<bool> {
-        // TODO: store media in database
+        let transaction = self.conn.transaction()?;
 
-        let rows = self.conn.execute(
+        let rows = transaction.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
-         VALUES (?1, ?2, ?3, ?4)",
+             VALUES (?1, ?2, ?3, ?4)",
             (
                 &encrypted.id.0[..],
                 &encrypted.author[..],
@@ -197,15 +211,34 @@ impl Storage {
                 encrypted.created_at as i64,
             ),
         )?;
-        Ok(rows > 0)
+
+        let did_insert = rows > 0;
+
+        if did_insert {
+            for media in &post.media {
+                transaction.execute(
+                    "INSERT INTO post_media (post_id, mime, bytes)
+                     VALUES (?1, ?2, ?3)",
+                    (&encrypted.id.0[..], media.mime.as_ref(), &media.bytes),
+                )?;
+            }
+        }
+
+        transaction.commit()?;
+
+        Ok(did_insert)
     }
 
-    pub fn load_posts(&self) -> rusqlite::Result<Vec<StoredPost>> {
-        let mut stmt = self
-            .conn
+    pub fn load_posts(&mut self) -> rusqlite::Result<Vec<StoredPost>> {
+        let transaction = self.conn.transaction()?;
+        let mut select_posts = transaction
             .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
-        let rows = stmt.query_map([], |r| {
-            Ok(StoredPost {
+
+        let mut select_media =
+            transaction.prepare("SELECT mime, bytes FROM post_media WHERE post_id = ?1")?;
+
+        let rows = select_posts.query_map([], |r| {
+            let post = StoredPost {
                 id: r
                     .get::<_, Vec<u8>>(0)?
                     .try_into()
@@ -226,9 +259,28 @@ impl Storage {
                 })?,
                 body: r.get(2)?,
                 created_at: r.get::<_, i64>(3)? as u64,
-            })
+                media: vec![],
+            };
+
+            Ok(post)
         })?;
-        rows.collect()
+        let mut posts: Vec<StoredPost> = rows.collect::<Result<_, _>>()?;
+
+        for post in &mut posts {
+            let media_rows = select_media.query_map([&post.id.0], |r| {
+                let mime: String = r.get(0)?;
+                Ok(Media {
+                    mime: Mime::from_str(&mime).unwrap(),
+                    bytes: r.get(1)?,
+                })
+            })?;
+
+            for media in media_rows {
+                post.media.push(media?);
+            }
+        }
+
+        Ok(posts)
     }
 
     pub fn save_response(
