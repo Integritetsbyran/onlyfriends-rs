@@ -1,20 +1,36 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{Arc, Mutex},
 };
 
 use axum::{
-    Json, Router,
-    extract::{Path, Query, State},
-    routing::post,
+    Router,
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{get, post},
 };
+use base64::engine::general_purpose::STANDARD;
 use clap::Parser;
+use keystone::{
+    SealedBox,
+    envelope::{Envelope, Letter, LetterKey, UserId},
+};
 use serde::{Deserialize, Serialize};
 use tracing_subscriber::EnvFilter;
 
+use crate::deserialize::Postcard;
+
+mod deserialize;
+
+#[derive(Serialize)]
+struct MailboxEntry {
+    letter: Arc<Letter>,
+    key: SealedBox<LetterKey>,
+}
+
 #[derive(Default)]
 struct Store {
-    mailboxes: HashMap<String, Vec<Vec<u8>>>,
+    mailboxes: HashMap<UserId, VecDeque<MailboxEntry>>,
 }
 
 type SharedStore = Arc<Mutex<Store>>;
@@ -26,22 +42,21 @@ struct PostItemRequest {
 
 async fn post_mailbox(
     State(store): State<SharedStore>,
-    Path(addr): Path<String>,
-    Json(req): Json<PostItemRequest>,
+    Postcard(envelope): Postcard<Envelope>,
 ) -> Result<(), axum::http::StatusCode> {
-    use base64::Engine;
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(&req.item_b64)
-        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-
     let mut store = store.lock().unwrap();
-    store.mailboxes.entry(addr).or_default().push(bytes);
-    Ok(())
-}
 
-#[derive(Serialize)]
-struct GetItemsResponse {
-    items_b64: Vec<String>,
+    let Envelope { letter, recipients } = envelope;
+    let letter = Arc::new(letter);
+
+    for recipient in recipients {
+        let entry = store.mailboxes.entry(recipient.id).or_default();
+        entry.push_back(MailboxEntry {
+            letter: Arc::clone(&letter),
+            key: recipient.key,
+        });
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -53,25 +68,23 @@ struct AfterQuery {
 async fn get_mailbox(
     State(store): State<SharedStore>,
     Path(addr): Path<String>,
-    Query(q): Query<AfterQuery>,
-) -> Json<GetItemsResponse> {
+) -> Result<Postcard<MailboxEntry>, StatusCode> {
     use base64::Engine;
 
-    let store = store.lock().unwrap();
-    let items: &[Vec<u8>] = store
+    let addr: UserId = STANDARD
+        .decode(addr)
+        .ok()
+        .and_then(|addr| addr.try_into().ok())
+        .ok_or(StatusCode::BAD_REQUEST)?;
+
+    let mut store = store.lock().unwrap();
+    let entry: MailboxEntry = store
         .mailboxes
-        .get(&addr)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+        .get_mut(&addr)
+        .and_then(|v| v.pop_front())
+        .ok_or(StatusCode::NO_CONTENT)?;
 
-    let items_b64 = items
-        .get(q.after..)
-        .unwrap_or(&[])
-        .iter()
-        .map(|item| base64::engine::general_purpose::STANDARD.encode(item))
-        .collect();
-
-    Json(GetItemsResponse { items_b64 })
+    Ok(Postcard(entry))
 }
 
 #[derive(Parser)]
@@ -91,7 +104,8 @@ async fn main() {
     let store: SharedStore = Arc::new(Mutex::new(Store::default()));
 
     let app = Router::new()
-        .route("/mailbox/{addr}", post(post_mailbox).get(get_mailbox))
+        .route("/mailbox", post(post_mailbox))
+        .route("/mailbox/{addr}", get(get_mailbox))
         .with_state(store);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")

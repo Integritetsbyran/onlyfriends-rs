@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use keystone::{
+    envelope::{Envelope, Letter},
     media::Media,
-    post::{PostContent, PostId},
+    post::{Post, PostId},
 };
 use mime::Mime;
 
@@ -194,11 +195,7 @@ impl Storage {
         }
     }
 
-    pub fn save_post(
-        &mut self,
-        encrypted: &keystone::EncryptedPost,
-        post: &PostContent,
-    ) -> rusqlite::Result<bool> {
+    pub fn save_post(&mut self, encrypted: &Letter, post: &Post) -> rusqlite::Result<bool> {
         let transaction = self.conn.transaction()?;
 
         let rows = transaction.execute(

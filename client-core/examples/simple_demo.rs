@@ -1,5 +1,5 @@
 use client_core::account::SyncResult;
-use keystone::{media::Media, post::PostContent};
+use keystone::{media::Media, post::Post};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Friends exchanged.");
 
     alice.set_profile("Alice", "hi from alice").await?;
-    let content = PostContent {
+    let content = Post {
         body: "hello over the wire!".to_string(),
         media: vec![Media {
             mime: "image/webp".parse().unwrap(),

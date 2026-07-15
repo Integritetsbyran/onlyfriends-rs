@@ -4,9 +4,11 @@ pub mod friend;
 pub mod identity;
 pub mod labels;
 pub mod media;
+pub mod message;
 pub mod post;
 pub mod profile;
 pub mod response;
+mod signing;
 pub mod util;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,9 +28,8 @@ impl From<postcard::Error> for crate::Error {
 pub type Result<T> = core::result::Result<T, Error>;
 
 pub use crypto::SealedBox;
-pub use envelope::Envelope;
 pub use friend::Friend;
 pub use identity::{Identity, PublicIdentity};
-pub use post::{EncryptedPost, SealedPost};
+pub use message::Message;
 pub use profile::Profile;
 pub use response::ResponseBody;

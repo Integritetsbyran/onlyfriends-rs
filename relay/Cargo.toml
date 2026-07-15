@@ -7,7 +7,9 @@ edition = "2024"
 axum = { workspace = true, features = ["tracing"] }
 base64.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive", "rc"] }
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+postcard.workspace = true
+keystone.path = "../keystone/"

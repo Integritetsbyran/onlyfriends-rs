@@ -4,20 +4,27 @@ use serde::{Deserialize, Serialize};
 use crate::{Identity, SealedBox, post::PostId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(u32)] // postcard uses u32 to tag enums
 pub enum ResponseBody {
-    Comment { text: String },
-    Reaction { emoji: String },
+    Comment { text: String } = 0,
+    Reaction { emoji: String } = 1,
 }
 
+/// A response to a post.
+///
+/// # Compatibility
+/// The postcard wire format is stable, and describes tagged unions (enums) with a `varint(u32)` discriminant.
+/// To maintain cross-compatibility between versions, we explicitly set the discriminant for each variant.
+/// A discriminant should never be re-used, therefore removing variants is discauraged.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ResponseInner {
+pub struct Response {
     pub post_id: PostId,
     pub author: [u8; 32], // responder's sign_pub
     pub body: ResponseBody,
     pub sig: Vec<u8>, // responder's signature
 }
 
-impl ResponseInner {
+impl Response {
     pub fn signing_bytes(&self) -> Vec<u8> {
         postcard::to_allocvec(&(self.post_id, self.author, &self.body)).expect("serializes")
     }
@@ -25,12 +32,12 @@ impl ResponseInner {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseRebroadcast {
-    pub inner: ResponseInner,
+    pub inner: Response,
     pub vouch_sig: Vec<u8>, // post owner's signature over `inner`
 }
 
-pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody) -> ResponseInner {
-    let mut response_inner = ResponseInner {
+pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody) -> Response {
+    let mut response_inner = Response {
         post_id,
         author: responder.public().sign_pub,
         body,
@@ -45,8 +52,8 @@ pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody
 }
 
 pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<ResponseRebroadcast> {
-    let opened = SealedBox::open(&owner.dh_secret(), sealed)?;
-    let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
+    let opened = sealed.open(&owner.dh_secret())?;
+    let response_inner = postcard::from_bytes::<Response>(&opened)?;
     let vk = ed25519_dalek::VerifyingKey::from_bytes(&response_inner.author)
         .map_err(|_| crate::Error::BadKey)?;
 
@@ -73,7 +80,7 @@ pub fn open_rebroadcast(
     owner_sign_pub: &[u8; 32],
     sealed: &SealedBox,
 ) -> crate::Result<ResponseRebroadcast> {
-    let opened = SealedBox::open(&recipient.dh_secret(), sealed)?;
+    let opened = sealed.open(&recipient.dh_secret())?;
     let rb = postcard::from_bytes::<ResponseRebroadcast>(&opened)?;
 
     let vk = ed25519_dalek::VerifyingKey::from_bytes(owner_sign_pub)
@@ -95,7 +102,7 @@ mod tests {
     use super::*;
 
     // Helper: seal a signed ResponseInner to a recipient, the way Account::react would.
-    fn seal_response(inner: &ResponseInner, recipient_dh_pub: &[u8; 32]) -> SealedBox {
+    fn seal_response(inner: &Response, recipient_dh_pub: &[u8; 32]) -> SealedBox {
         let bytes = postcard::to_allocvec(inner).expect("serializes");
         SealedBox::seal(recipient_dh_pub, &bytes)
     }
