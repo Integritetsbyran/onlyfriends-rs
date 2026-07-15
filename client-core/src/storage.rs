@@ -57,17 +57,7 @@ pub struct StoredResponse {
     pub content: String,
 }
 
-pub struct Storage {
-    conn: rusqlite::Connection,
-}
-
 impl Storage {
-    pub fn open(path: &str) -> rusqlite::Result<Self> {
-        let conn = rusqlite::Connection::open(path)?;
-        conn.execute_batch(SCHEMA_SQL)?; // the CREATE TABLE block above, as a const &str
-        Ok(Storage { conn })
-    }
-
     pub fn save_identity(&self, id: &keystone::Identity) -> rusqlite::Result<usize> {
         self.conn.execute(
             "INSERT OR REPLACE INTO identity (id, master_seed) VALUES (0, ?1)",

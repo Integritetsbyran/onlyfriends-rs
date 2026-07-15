@@ -6,8 +6,9 @@ edition = "2021"
 [dependencies]
 dioxus = { workspace = true, features = ["router"] }
 ui = { workspace = true }
+# Necessary to enable a sub-dependency of keystone to work in the browser.
+getrandom = { version = "0.2", features = ["js"] }
 
 [features]
 default = ["web"]
 web = ["dioxus/web"]
-

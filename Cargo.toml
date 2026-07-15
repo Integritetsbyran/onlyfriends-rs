@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["client-core", "keystone", "relay", "ui/ui-common", "ui/mobile", "ui/web", "ui/desktop"]
+members = ["client-core", "keystone", "relay", "ui/ui-common", "ui/mobile", "ui/web", "ui/desktop", "storage/storage-common", "storage/storage-sqlite"]
 
 [workspace.dependencies]
 dioxus = { version = "0.7.3" }
@@ -24,6 +24,7 @@ tracing-subscriber = "0.3.23"
 x25519-dalek = "2"
 ui = { path = "ui/ui-common" }
 client-core = { path = "client-core" }
+storage-common ={ path = "storage/storage-common" }
 
 [workspace.lints.clippy]
 allow_attributes = "warn"

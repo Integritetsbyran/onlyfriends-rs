@@ -9,7 +9,6 @@ hex.workspace = true
 keystone = { path = "../keystone" }
 postcard = { workspace = true, features = ["alloc"] }
 reqwest = { workspace = true, features = ["json"] }
-rusqlite = { workspace = true, features = ["bundled"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 
