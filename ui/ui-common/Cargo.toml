@@ -7,5 +7,6 @@ edition = "2021"
 dioxus = { workspace = true }
 client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
+base64.workspace = true
 keystone.path = "../../keystone/"
 
