@@ -21,6 +21,10 @@ jobs:
 
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('flake.lock') }}
+
       - name: Check formatting
         run: nix develop --command cargo fmt -- --check
 
@@ -35,6 +39,10 @@ jobs:
 
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('flake.lock') }}
+
       - name: Run Clippy
         run: nix develop --command cargo clippy --all-targets --all-features -- -D warnings
 
@@ -48,6 +56,10 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@main
 
       - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('flake.lock') }}
 
       - name: Run tests
         run: nix develop --command cargo test --all-features
