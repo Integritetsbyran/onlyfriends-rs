@@ -15,7 +15,7 @@ pub struct PostContent {
     pub media: Vec<Media>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PostId(pub [u8; 16]);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
