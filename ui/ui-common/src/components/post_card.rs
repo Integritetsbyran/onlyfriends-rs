@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use base64::engine::general_purpose::STANDARD;
@@ -6,7 +7,7 @@ use dioxus::prelude::*;
 use keystone::media::Media;
 
 use crate::components::{CommentList, ReactionBar};
-use crate::context;
+use crate::context::{self, ModalContent};
 
 fn format_age(ts: u64) -> String {
     let now = SystemTime::now()
@@ -36,17 +37,18 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 /// Convert a [`Media`] into an web-compatible data-blob.
 ///
 /// Expensive and ridiculous, but this seems to be the only way to load image bytes into dioxus.
-fn media_to_data_uri(media: &Media) -> String {
+fn media_to_data_uri(media: &Media) -> Arc<str> {
     let b64 = STANDARD.encode(&media.bytes);
     // TODO: filter unknown mime types?
     let mime = media.mime.as_ref();
-    format!("data:{mime};base64,{b64}")
+    format!("data:{mime};base64,{b64}").into()
 }
 
 /// A single post card in the feed.
 #[component]
 pub fn PostCard(post: client_core::FeedPost) -> Element {
     let account = context::use_app_account();
+    let mut modal = context::use_modal();
     let mut author_name = use_signal(|| bytes_to_hex(&post.author[..8]));
     let mut show_comments = use_signal(|| false);
 
@@ -90,13 +92,24 @@ pub fn PostCard(post: client_core::FeedPost) -> Element {
             p { class: "post-body", "{post.content.body}" }
 
             if !media.is_empty() {
-                {media.iter().map(|media| {
-                    rsx! {
-                        img {
-                            src: "{media}",
+                div { class: "post-images",
+                    {media.iter().map(|media| {
+                        let media = Arc::clone(media);
+                        rsx! {
+                            img {
+                                src: "{media}",
+                                onclick: move |_| {
+                                    modal.set(Some(ModalContent(rsx! {
+                                        img {
+                                            class: "post-image-viewer",
+                                            src: "{media}",
+                                        }
+                                    })));
+                                }
+                            }
                         }
-                    }
-                })}
+                    })}
+                }
             }
 
             ReactionBar {

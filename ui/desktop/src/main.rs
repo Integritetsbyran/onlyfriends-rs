@@ -35,6 +35,7 @@ fn main() {
 #[component]
 fn App() -> Element {
     use_context_provider(|| Signal::new(None::<context::AppAccount>));
+    use_context_provider(|| Signal::new(None::<context::ModalContent>));
 
     rsx! {
         document::Stylesheet { href: APP_CSS }
