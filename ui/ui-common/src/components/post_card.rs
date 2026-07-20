@@ -37,6 +37,7 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 /// Convert a [`Media`] into an web-compatible data-blob.
 ///
 /// Expensive and ridiculous, but this seems to be the only way to load image bytes into dioxus.
+/// Note that it takes also a noticable amount of time for dioxus to **decode** the base64 image.
 fn media_to_data_uri(media: &Media) -> Arc<str> {
     let b64 = STANDARD.encode(&media.bytes);
     // TODO: filter unknown mime types?
