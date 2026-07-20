@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::{
-    components::{NewPostForm, PostCard},
+    components::{Modal, NewPostForm, PostCard},
     context,
 };
 
@@ -48,6 +48,7 @@ pub fn FeedPage() -> Element {
     };
 
     rsx! {
+        Modal {}
         div { class: "page feed-page",
             div { class: "feed-header",
                 h2 { "Feed" }
