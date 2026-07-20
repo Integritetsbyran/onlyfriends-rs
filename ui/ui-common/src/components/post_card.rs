@@ -51,36 +51,42 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
     let mut modal = context::use_modal();
     let mut author_name = use_signal(|| bytes_to_hex(&post.author[..8]));
     let mut show_comments = use_signal(|| false);
+    let has_media = !post.content.media.is_empty();
+    let mut media = use_signal::<Option<Arc<[_]>>>(|| None);
 
     // Try to resolve author display name from stored profiles.
     let author_key = post.author;
     use_effect(move || {
         let acc_opt = account.read().as_ref().map(|a| a.clone());
-        if let Some(arc) = acc_opt {
-            spawn(async move {
-                let acc = arc.lock().await;
-                if let Ok(Some(profile)) = acc.storage.load_profile(&author_key) {
-                    author_name.set(profile.display_name.clone());
-                } else {
-                    // Check if it's our own post.
-                    let own = acc.identity.public().sign_pub;
-                    if own == author_key {
-                        if let Ok(Some(p)) = acc.storage.load_profile(&own) {
-                            author_name.set(format!("{} (you)", p.display_name));
-                        } else {
-                            author_name.set("You".to_string());
-                        }
+        let Some(arc) = acc_opt else { return };
+        spawn(async move {
+            let acc = arc.lock().await;
+            if let Ok(Some(profile)) = acc.storage.load_profile(&author_key) {
+                author_name.set(profile.display_name.clone());
+            } else {
+                // Check if it's our own post.
+                let own = acc.identity.public().sign_pub;
+                if own == author_key {
+                    if let Ok(Some(p)) = acc.storage.load_profile(&own) {
+                        author_name.set(format!("{} (you)", p.display_name));
+                    } else {
+                        author_name.set("You".to_string());
                     }
                 }
-            });
-        }
+            }
+        });
     });
 
     let age = format_age(post.created_at);
     let comment_count = post.comments.len();
 
-    // TODO: don't convert images in the hot render loop like this
-    let media: Vec<_> = post.content.media.iter().map(media_to_data_uri).collect();
+    // Base64-encode media. This is expensive, so only do it once.
+    if has_media && media().is_none() {
+        // TODO: don't convert images in the render loop
+        let m: Vec<_> = post.content.media.iter().map(media_to_data_uri).collect();
+        let m: Arc<_> = m.into_boxed_slice().into();
+        media.set(Some(m));
+    }
 
     rsx! {
         div { class: "card post-card",
@@ -91,7 +97,7 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
 
             p { class: "post-body", "{post.content.body}" }
 
-            if !media.is_empty() {
+            if let Some(media) = media() {
                 div { class: "post-images",
                     {media.iter().map(|media| {
                         let media = Arc::clone(media);
