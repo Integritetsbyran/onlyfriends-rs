@@ -46,7 +46,7 @@ fn media_to_data_uri(media: &Media) -> Arc<str> {
 
 /// A single post card in the feed.
 #[component]
-pub fn PostCard(post: client_core::FeedPost) -> Element {
+pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
     let account = context::use_app_account();
     let mut modal = context::use_modal();
     let mut author_name = use_signal(|| bytes_to_hex(&post.author[..8]));

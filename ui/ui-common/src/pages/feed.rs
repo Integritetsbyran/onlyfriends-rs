@@ -4,13 +4,14 @@ use crate::{
     components::{Modal, NewPostForm, PostCard},
     context,
 };
+use std::sync::Arc;
 
 /// Main feed page. Auto-syncs all friends' mailboxes on mount, then displays
 /// posts in reverse-chronological order.
 #[component]
 pub fn FeedPage() -> Element {
     let account = context::use_app_account();
-    let mut posts = use_signal(Vec::<client_core::FeedPost>::new);
+    let mut posts = use_signal(Vec::<Arc<client_core::FeedPost>>::new);
     let mut syncing = use_signal(|| false);
     let mut sync_err = use_signal(String::new);
 
@@ -26,7 +27,10 @@ pub fn FeedPage() -> Element {
                     sync_err.set(format!("Sync error: {e}"));
                 }
                 match acc.load_feed() {
-                    Ok(feed) => posts.set(feed),
+                    Ok(feed) => {
+                        let feed = feed.into_iter().map(Arc::new).collect();
+                        posts.set(feed);
+                    }
                     Err(e) => sync_err.set(format!("Load error: {e}")),
                 }
                 syncing.set(false);
@@ -41,6 +45,7 @@ pub fn FeedPage() -> Element {
             spawn(async move {
                 let mut acc = arc.lock().await;
                 if let Ok(feed) = acc.load_feed() {
+                    let feed = feed.into_iter().map(Arc::new).collect();
                     posts.set(feed);
                 }
             });
