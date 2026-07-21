@@ -1701,6 +1701,7 @@ dependencies = [
  "dioxus",
  "dioxus-native",
  "dioxus-router",
+ "storage-sqlite",
  "tokio",
  "ui",
 ]
@@ -7108,6 +7109,7 @@ name = "storage-common"
 version = "0.1.0"
 dependencies = [
  "keystone",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

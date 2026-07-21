@@ -1,9 +1,13 @@
+use std::sync::Arc;
+
 use keystone::ResponseBody::{Comment, Reaction};
 use storage_common::storage::Storage;
 
 use crate::{ClientError, RelayClient, epoch_now, mailbox_address, my_direction};
 
-pub struct Account<Store: Storage> {
+pub type Store = Arc<dyn Storage>;
+
+pub struct Account {
     pub storage: Store,
     pub identity: keystone::Identity,
     pub relay: RelayClient,
@@ -60,7 +64,7 @@ pub struct FeedComment {
     pub text: String, // already decrypted
 }
 
-impl<Store: Storage> Account<Store> {
+impl Account {
     pub fn open(storage: Store, relay_url: &str) -> crate::Result<Self> {
         let identity = load_or_create_identity(&storage)?;
         let relay = RelayClient::new(relay_url);
@@ -76,18 +80,13 @@ impl<Store: Storage> Account<Store> {
         nickname: &str,
     ) -> crate::Result<keystone::Friend> {
         let friend = keystone::friend::add_friend(&self.identity, their, nickname);
-        self.storage
-            .save_friend(&friend)
-            .map_err(crate::ClientError::from_storage)?;
+        self.storage.save_friend(&friend)?;
         self.send_my_profile_to(&friend).await?;
         Ok(friend)
     }
 
     pub async fn send_post(&self, body: &str) -> crate::Result<[u8; 16]> {
-        let friends = self
-            .storage
-            .load_friends()
-            .map_err(ClientError::from_storage)?;
+        let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
         // Always include self as a recipient so `create_post` always returns at
@@ -100,9 +99,7 @@ impl<Store: Storage> Account<Store> {
 
         let post_id = posts.first().map(|p| p.post.id).unwrap_or([0u8; 16]);
         if let Some(first) = posts.first() {
-            self.storage
-                .save_post(&first.post, body)
-                .map_err(ClientError::from_storage)?;
+            self.storage.save_post(&first.post, body)?;
         }
 
         // Send only to actual friends; the trailing self-sealed post is unused.
@@ -132,8 +129,7 @@ impl<Store: Storage> Account<Store> {
             let addr = mailbox_address(&friend.pairwise_root, direction, e);
             let after = self
                 .storage
-                .get_cursor(&friend.public.sign_pub, direction, e)
-                .map_err(ClientError::from_storage)?;
+                .get_cursor(&friend.public.sign_pub, direction, e)?;
             let items = self.relay.get_items(&addr, after).await?;
 
             for item in &items {
@@ -148,11 +144,7 @@ impl<Store: Storage> Account<Store> {
                         else {
                             continue;
                         };
-                        if self
-                            .storage
-                            .save_post(&sealed_post.post, &text)
-                            .map_err(ClientError::from_storage)?
-                        {
+                        if self.storage.save_post(&sealed_post.post, &text)? {
                             sync_results.new_posts.push(text);
                         }
                     }
@@ -172,15 +164,10 @@ impl<Store: Storage> Account<Store> {
                             continue;
                         }
 
-                        let existing = self
-                            .storage
-                            .load_profile(&profile.owner)
-                            .map_err(ClientError::from_storage)?;
+                        let existing = self.storage.load_profile(&profile.owner)?;
                         let is_newer = existing.is_none_or(|old| profile.version > old.version);
                         if is_newer {
-                            self.storage
-                                .save_profile(&profile)
-                                .map_err(ClientError::from_storage)?;
+                            self.storage.save_profile(&profile)?;
                             sync_results.updated_profiles.push(profile);
                         }
                     }
@@ -190,11 +177,7 @@ impl<Store: Storage> Account<Store> {
                         else {
                             continue;
                         };
-                        for f in self
-                            .storage
-                            .load_friends()
-                            .map_err(ClientError::from_storage)?
-                        {
+                        for f in self.storage.load_friends()? {
                             let rb_bytes = postcard::to_allocvec(&rb)?;
                             let resealed = keystone::SealedBox::seal(&f.public.dh_pub, &rb_bytes);
                             self.post_envelope(&f, keystone::Envelope::Rebroadcast(resealed))
@@ -218,9 +201,12 @@ impl<Store: Storage> Account<Store> {
                 }
             }
             if !items.is_empty() {
-                self.storage
-                    .set_cursor(&friend.public.sign_pub, direction, e, after + items.len())
-                    .map_err(ClientError::from_storage)?;
+                self.storage.set_cursor(
+                    &friend.public.sign_pub,
+                    direction,
+                    e,
+                    after + items.len(),
+                )?;
             }
         }
 
@@ -237,8 +223,7 @@ impl<Store: Storage> Account<Store> {
                 self.storage
                     .save_response(&rb.inner.post_id, &rb.inner.author, 1, text.as_str())
             }
-        }
-        .map_err(ClientError::from_storage)?;
+        }?;
         Ok(())
     }
 
@@ -246,8 +231,7 @@ impl<Store: Storage> Account<Store> {
     pub async fn set_profile(&self, display_name: &str, bio: &str) -> crate::Result<()> {
         let old_profile = self
             .storage
-            .load_profile(&self.identity.public().sign_pub)
-            .map_err(ClientError::from_storage)?;
+            .load_profile(&self.identity.public().sign_pub)?;
 
         let new_profile = keystone::profile::create_profile(
             &self.identity,
@@ -255,14 +239,9 @@ impl<Store: Storage> Account<Store> {
             bio,
             old_profile.map_or(0, |p| p.version + 1),
         );
-        self.storage
-            .save_profile(&new_profile)
-            .map_err(ClientError::from_storage)?;
+        self.storage.save_profile(&new_profile)?;
 
-        let friends = self
-            .storage
-            .load_friends()
-            .map_err(ClientError::from_storage)?;
+        let friends = self.storage.load_friends()?;
         for friend in friends.iter() {
             self.send_my_profile_to(friend).await?
         }
@@ -288,8 +267,7 @@ impl<Store: Storage> Account<Store> {
     async fn send_my_profile_to(&self, friend: &keystone::Friend) -> crate::Result<()> {
         let Some(profile) = self
             .storage
-            .load_profile(&self.identity.public().sign_pub)
-            .map_err(ClientError::from_storage)?
+            .load_profile(&self.identity.public().sign_pub)?
         else {
             return Ok(());
         };
@@ -309,11 +287,7 @@ impl<Store: Storage> Account<Store> {
         post_author: &[u8; 32],
         emoji: &str,
     ) -> crate::Result<()> {
-        let Some(owner) = self
-            .storage
-            .load_friend_by_sign_pub(post_author)
-            .map_err(ClientError::from_storage)?
-        else {
+        let Some(owner) = self.storage.load_friend_by_sign_pub(post_author)? else {
             return Err(ClientError::NotFriendError("react to a post"));
         };
         let inner = keystone::response::create_response(
@@ -336,11 +310,7 @@ impl<Store: Storage> Account<Store> {
         post_author: &[u8; 32],
         text: &str,
     ) -> crate::Result<()> {
-        let Some(owner) = self
-            .storage
-            .load_friend_by_sign_pub(post_author)
-            .map_err(ClientError::from_storage)?
-        else {
+        let Some(owner) = self.storage.load_friend_by_sign_pub(post_author)? else {
             return Err(ClientError::NotFriendError("comment on a post"));
         };
         let inner = keystone::response::create_response(
@@ -358,16 +328,10 @@ impl<Store: Storage> Account<Store> {
     }
 
     pub fn load_feed(&self) -> crate::Result<Vec<FeedPost>> {
-        let posts = self
-            .storage
-            .load_posts()
-            .map_err(ClientError::from_storage)?;
+        let posts = self.storage.load_posts()?;
         let mut feed = Vec::new();
         for p in posts {
-            let responses = self
-                .storage
-                .load_responses_for(&p.id)
-                .map_err(ClientError::from_storage)?;
+            let responses = self.storage.load_responses_for(&p.id)?;
             let (reactions, comments): (Vec<_>, Vec<_>) =
                 responses.into_iter().partition(|r| r.kind == 0);
             feed.push(FeedPost {
@@ -395,10 +359,7 @@ impl<Store: Storage> Account<Store> {
     }
 
     pub async fn sync(&self) -> crate::Result<SyncResult> {
-        let friends = self
-            .storage
-            .load_friends()
-            .map_err(ClientError::from_storage)?;
+        let friends = self.storage.load_friends()?;
         let mut all_sync_results = SyncResult::new();
 
         for friend in &friends {
@@ -410,16 +371,12 @@ impl<Store: Storage> Account<Store> {
     }
 }
 
-pub fn load_or_create_identity<Store: Storage>(
-    storage: &Store,
-) -> crate::Result<keystone::Identity> {
-    match storage.load_identity().map_err(ClientError::from_storage)? {
+pub fn load_or_create_identity(storage: &Store) -> crate::Result<keystone::Identity> {
+    match storage.load_identity()? {
         Some(id) => Ok(id),
         None => {
             let id = keystone::Identity::generate();
-            storage
-                .save_identity(&id)
-                .map_err(ClientError::from_storage)?;
+            storage.save_identity(&id)?;
             Ok(id)
         }
     }

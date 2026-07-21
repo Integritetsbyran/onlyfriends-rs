@@ -3,13 +3,16 @@ use std::sync::Arc;
 use dioxus::prelude::*;
 use tokio::sync::Mutex;
 
-use crate::{config, context};
+use crate::context;
 
 /// First-run onboarding screen. Collects a relay URL, display name, and bio,
 /// opens (or creates) the local database, persists the account in context,
 /// and calls `on_complete` so the caller can navigate away.
 #[component]
-pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
+pub fn SetupPage(
+    on_complete: EventHandler<()>,
+    get_storage: Callback<(), client_core::account::Store>,
+) -> Element {
     let mut relay_url = use_signal(|| "http://localhost:3000".to_string());
     let mut display_name = use_signal(String::new);
     let mut bio = use_signal(String::new);
@@ -36,7 +39,7 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
         submitting.set(true);
 
         spawn(async move {
-            match client_core::Account::open(&config::db_path(), &relay) {
+            match client_core::Account::open(get_storage.call(()), &relay) {
                 Ok(acc) => {
                     // Best-effort: set the profile; ignore errors here — user can update later.
                     let _ = acc.set_profile(&name, &bio_text).await;

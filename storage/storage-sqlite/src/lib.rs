@@ -1,15 +1,11 @@
 use storage_common::{
-    storage::{Storage, StorageError},
+    storage::{Storage, StorageError, StorageResult},
     types::{stored_post::StoredPost, stored_response::StoredResponse},
 };
 
-#[derive(Debug, thiserror::Error)]
-pub enum SqliteStorageError {
-    #[error("SQLite error: {0}")]
-    SqliteError(#[from] rusqlite::Error),
-}
-
-impl StorageError for SqliteStorageError {}
+// TODO: Ayoh ya matey, welcome to crime city. Here be no laws that have not been broken.
+// This is a crime-scene of a file. It is a crime to read this file without a warrant.
+// If you are reading this, you are hereby warned that you are committing a crime, GL & HF.
 
 const SCHEMA_SQL: &str = "
 CREATE TABLE IF NOT EXISTS identity (
@@ -57,21 +53,58 @@ CREATE TABLE IF NOT EXISTS mailbox_cursors (
 );
 ";
 
+#[derive(Debug, thiserror::Error)]
+enum SqliteStorageError {
+    #[error("SQLite error: {0}")]
+    SqliteError(#[from] rusqlite::Error),
+}
+
+impl Into<StorageError> for SqliteStorageError {
+    fn into(self) -> StorageError {
+        match self {
+            SqliteStorageError::SqliteError(err) => StorageError::QueryError(err.to_string()),
+        }
+    }
+}
+
+// Converts a compatible error into SqliteStorageError and then into StorageError.
+macro_rules! sqlite_err {
+    ($($arg:tt)*) => {
+        SqliteStorageError::SqliteError($($arg)*).into()
+    };
+}
+
+// Effectively a hacky `?` operator but that does a double-convertion of compatible errors utilizing `sqlite_err!()` macro.
+macro_rules! sqlite_result {
+    ($expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(e) => return Err(sqlite_err!(e)),
+        }
+    };
+}
+
 pub struct SqliteStorage {
     conn: rusqlite::Connection,
 }
 
-impl Storage for SqliteStorage {
-    type Error = SqliteStorageError;
+impl SqliteStorage {
+    pub fn open(path: &str) -> Result<Self, StorageError> {
+        let conn = sqlite_result!(rusqlite::Connection::open(path));
+        sqlite_result!(conn.execute_batch(SCHEMA_SQL));
+        Ok(SqliteStorage { conn })
+    }
+}
 
-    fn save_identity(&self, id: &keystone::Identity) -> Result<usize, Self::Error> {
-        Ok(self.conn.execute(
+impl Storage for SqliteStorage {
+    fn save_identity(&self, id: &keystone::Identity) -> StorageResult<usize> {
+        Ok(sqlite_result!(self.conn.execute(
             "INSERT OR REPLACE INTO identity (id, master_seed) VALUES (0, ?1)",
             [id.master_seed],
-        )?)
+        )))
     }
 
-    fn load_identity(&self) -> Result<Option<keystone::Identity>, Self::Error> {
+    fn load_identity(&self) -> StorageResult<Option<keystone::Identity>> {
         match self
             .conn
             .query_row("SELECT master_seed FROM identity WHERE id = 0", [], |r| {
@@ -79,22 +112,24 @@ impl Storage for SqliteStorage {
             }) {
             Ok(seed) => Ok(Some(keystone::Identity::from_seed(seed))),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(SqliteStorageError::SqliteError(e)),
+            Err(e) => Err(sqlite_err!(e)),
         }
     }
 
-    fn save_friend(&self, f: &keystone::Friend) -> Result<usize, Self::Error> {
-        Ok(self.conn.execute(
+    fn save_friend(&self, f: &keystone::Friend) -> StorageResult<usize> {
+        Ok(sqlite_result!(self.conn.execute(
             "INSERT INTO friends (sign_pub, dh_pub, nickname, pairwise_root) VALUES (?1, ?2, ?3, ?4)", 
-            (&f.public.sign_pub, &f.public.dh_pub, &f.nickname, &f.pairwise_root))?)
+            (&f.public.sign_pub, &f.public.dh_pub, &f.nickname, &f.pairwise_root))
+        ))
     }
 
-    fn load_friends(&self) -> Result<Vec<keystone::Friend>, Self::Error> {
-        let mut statment = self
-            .conn
-            .prepare("SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends")?;
+    fn load_friends(&self) -> StorageResult<Vec<keystone::Friend>> {
+        let mut statment = sqlite_result!(
+            self.conn
+                .prepare("SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends")
+        );
 
-        let rows = statment.query_map([], |row| {
+        let rows = sqlite_result!(statment.query_map([], |row| {
             let sign_pub: Vec<u8> = row.get(0)?;
             let dh_pub: Vec<u8> = row.get(1)?;
             let nickname: String = row.get(2)?;
@@ -108,16 +143,16 @@ impl Storage for SqliteStorage {
                 nickname,
                 pairwise_root: pairwise_root.try_into().unwrap(),
             })
-        })?;
+        }));
 
-        let rows = rows.collect::<Result<Vec<keystone::Friend>, rusqlite::Error>>()?;
+        let rows = sqlite_result!(rows.collect());
         Ok(rows)
     }
 
     fn load_friend_by_sign_pub(
         &self,
         sign_pub: &[u8; 32],
-    ) -> Result<Option<keystone::Friend>, Self::Error> {
+    ) -> StorageResult<Option<keystone::Friend>> {
         // same query shape as load_friends, but WHERE sign_pub = ?1, query_row instead of query_map
         let result = self.conn.query_row(
             "SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends WHERE sign_pub = ?1",
@@ -142,19 +177,19 @@ impl Storage for SqliteStorage {
         match result {
             Ok(friend) => Ok(Some(friend)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(SqliteStorageError::SqliteError(e)),
+            Err(e) => Err(sqlite_err!(e)),
         }
     }
 
-    fn save_profile(&self, p: &keystone::Profile) -> Result<usize, Self::Error> {
-        Ok(self.conn.execute(
+    fn save_profile(&self, p: &keystone::Profile) -> StorageResult<usize> {
+        Ok(sqlite_result!(self.conn.execute(
             "INSERT OR REPLACE INTO profiles (owner, display_name, bio, version, sig)
          VALUES (?1, ?2, ?3, ?4, ?5)",
             (&p.owner[..], &p.display_name, &p.bio, p.version, &p.sig),
-        )?)
+        )))
     }
 
-    fn load_profile(&self, owner: &[u8; 32]) -> Result<Option<keystone::Profile>, Self::Error> {
+    fn load_profile(&self, owner: &[u8; 32]) -> StorageResult<Option<keystone::Profile>> {
         let result = self.conn.query_row(
             "SELECT owner, display_name, bio, version, sig FROM profiles WHERE owner = ?1",
             [&owner[..]],
@@ -172,24 +207,25 @@ impl Storage for SqliteStorage {
         match result {
             Ok(profile) => Ok(Some(profile)),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(SqliteStorageError::SqliteError(e)),
+            Err(e) => Err(sqlite_err!(e)),
         }
     }
 
-    fn save_post(&self, post: &keystone::Post, body: &str) -> Result<bool, Self::Error> {
-        let rows = self.conn.execute(
+    fn save_post(&self, post: &keystone::Post, body: &str) -> StorageResult<bool> {
+        let rows = sqlite_result!(self.conn.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
          VALUES (?1, ?2, ?3, ?4)",
             (&post.id[..], &post.author[..], body, post.created_at as i64),
-        )?;
+        ));
         Ok(rows > 0)
     }
 
-    fn load_posts(&self) -> Result<Vec<StoredPost>, Self::Error> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
-        let rows = stmt.query_map([], |r| {
+    fn load_posts(&self) -> StorageResult<Vec<StoredPost>> {
+        let mut stmt = sqlite_result!(
+            self.conn
+                .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")
+        );
+        let rows = sqlite_result!(stmt.query_map([], |r| {
             Ok(StoredPost {
                 id: r.get::<_, Vec<u8>>(0)?.try_into().map_err(|_| {
                     rusqlite::Error::FromSqlConversionFailure(
@@ -208,8 +244,8 @@ impl Storage for SqliteStorage {
                 body: r.get(2)?,
                 created_at: r.get::<_, i64>(3)? as u64,
             })
-        })?;
-        let rows = rows.collect::<Result<Vec<_>, rusqlite::Error>>()?;
+        }));
+        let rows = sqlite_result!(rows.collect());
         Ok(rows)
     }
 
@@ -219,17 +255,29 @@ impl Storage for SqliteStorage {
         author: &[u8; 32],
         kind: u8,
         content: &str,
-    ) -> Result<bool, Self::Error> {
-        let rows = self.conn.execute(
+    ) -> StorageResult<bool> {
+        let rows = sqlite_result!(self.conn.execute(
             "INSERT OR IGNORE INTO responses (post_id, author, kind, content)
          VALUES (?1, ?2, ?3, ?4)",
             (&post_id[..], &author[..], kind, content),
-        )?;
+        ));
         Ok(rows > 0)
     }
 
-    fn load_responses_for(&self, post_id: &[u8; 16]) -> Result<Vec<StoredResponse>, Self::Error> {
-        todo!()
+    fn load_responses_for(&self, post_id: &[u8; 16]) -> StorageResult<Vec<StoredResponse>> {
+        let mut stmt = sqlite_result!(
+            self.conn
+                .prepare("SELECT author, kind, content FROM responses WHERE post_id = ?1")
+        );
+        let rows = sqlite_result!(stmt.query_map([post_id], |r| {
+            Ok(StoredResponse {
+                author: r.get(0)?,
+                kind: r.get(1)?,
+                content: r.get(2)?,
+            })
+        }));
+        let rows = sqlite_result!(rows.collect());
+        Ok(rows)
     }
 
     fn get_cursor(
@@ -237,8 +285,17 @@ impl Storage for SqliteStorage {
         friend_sign_pub: &[u8; 32],
         direction: u8,
         epoch: u64,
-    ) -> Result<usize, Self::Error> {
-        todo!()
+    ) -> StorageResult<usize> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT last_index FROM mailbox_cursors
+             WHERE friend_sign_pub = ?1 AND direction = ?2 AND epoch = ?3",
+                (&friend_sign_pub[..], direction, epoch as i64),
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|n| n as usize)
+            .unwrap_or(0))
     }
 
     fn set_cursor(
@@ -246,8 +303,13 @@ impl Storage for SqliteStorage {
         friend_sign_pub: &[u8; 32],
         direction: u8,
         epoch: u64,
-        last_index: usize,
-    ) -> Result<usize, Self::Error> {
-        todo!()
+        index: usize,
+    ) -> StorageResult<()> {
+        sqlite_result!(self.conn.execute(
+            "INSERT OR REPLACE INTO mailbox_cursors (friend_sign_pub, direction, epoch, last_index)
+         VALUES (?1, ?2, ?3, ?4)",
+            (&friend_sign_pub[..], direction, epoch as i64, index as i64),
+        ));
+        Ok(())
     }
 }
