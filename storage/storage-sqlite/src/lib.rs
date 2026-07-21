@@ -59,10 +59,10 @@ enum SqliteStorageError {
     SqliteError(#[from] rusqlite::Error),
 }
 
-impl Into<StorageError> for SqliteStorageError {
-    fn into(self) -> StorageError {
-        match self {
-            SqliteStorageError::SqliteError(err) => StorageError::QueryError(err.to_string()),
+impl From<SqliteStorageError> for StorageError {
+    fn from(err: SqliteStorageError) -> Self {
+        match err {
+            SqliteStorageError::SqliteError(e) => StorageError::QueryError(e.to_string()),
         }
     }
 }
@@ -87,6 +87,10 @@ macro_rules! sqlite_result {
 pub struct SqliteStorage {
     conn: rusqlite::Connection,
 }
+
+// TODO: Probably not safe to implement these. :Sweat_smile:
+unsafe impl Sync for SqliteStorage {}
+unsafe impl Send for SqliteStorage {}
 
 impl SqliteStorage {
     pub fn open(path: &str) -> Result<Self, StorageError> {
