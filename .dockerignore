@@ -2,3 +2,7 @@
 **/target
 *.sqlite
 **/onlyfriends.db
+.git
+.github
+.gitignore
+.dockerignore
