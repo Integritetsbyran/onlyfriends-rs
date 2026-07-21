@@ -21,10 +21,10 @@ pub fn ReactionBar(
             *map.entry(r.emoji.clone()).or_insert(0) += 1;
         }
         let mut v: Vec<_> = map.into_iter().collect();
-        v.sort_by(|a, b| b.1.cmp(&a.1));
+        v.sort_by_key(|a| std::cmp::Reverse(a.1));
         v
     };
-    grouped.sort_by(|a, b| b.1.cmp(&a.1));
+    grouped.sort_by_key(|a| std::cmp::Reverse(a.1));
 
     let mut do_react = move || {
         let emoji = emoji_input.read().trim().to_string();
