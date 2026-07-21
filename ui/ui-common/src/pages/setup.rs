@@ -55,9 +55,7 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
         div { class: "setup-page",
             div { class: "setup-card",
                 h1 { class: "setup-title", "OnlyFriends" }
-                p { class: "setup-subtitle",
-                    "Private, encrypted social with your friends."
-                }
+                p { class: "setup-subtitle", "Private, encrypted social with your friends." }
 
                 div { class: "form-group",
                     label { "Relay server URL" }
@@ -82,7 +80,10 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
                 }
 
                 div { class: "form-group",
-                    label { "Bio " span { class: "optional", "(optional)" } }
+                    label {
+                        "Bio "
+                        span { class: "optional", "(optional)" }
+                    }
                     textarea {
                         class: "input",
                         placeholder: "A short bio…",
@@ -99,7 +100,11 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
                     class: "btn btn-primary",
                     disabled: *submitting.read(),
                     onclick: submit,
-                    if *submitting.read() { "Setting up…" } else { "Get started" }
+                    if *submitting.read() {
+                        "Setting up…"
+                    } else {
+                        "Get started"
+                    }
                 }
             }
         }

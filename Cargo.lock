@@ -1069,6 +1069,8 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "storage-common",
+ "thiserror 2.0.18",
  "tokio",
  "tracing-subscriber",
 ]
@@ -7104,11 +7106,15 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "storage-common"
 version = "0.1.0"
+dependencies = [
+ "keystone",
+]
 
 [[package]]
 name = "storage-sqlite"
 version = "0.1.0"
 dependencies = [
+ "keystone",
  "rusqlite",
  "storage-common",
  "thiserror 2.0.18",
@@ -8112,6 +8118,7 @@ version = "0.1.0"
 dependencies = [
  "client-core",
  "dioxus",
+ "storage-common",
  "tokio",
 ]
 

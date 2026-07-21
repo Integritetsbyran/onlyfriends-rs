@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 rusqlite = { workspace = true, features = ["bundled"] }
 storage-common = { workspace = true }
-thiserror = "2.0.18"
+thiserror = { workspace = true }
+keystone = { workspace = true }

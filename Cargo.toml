@@ -22,9 +22,11 @@ tokio = "1"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
 x25519-dalek = "2"
+thiserror = "2.0.18"
 ui = { path = "ui/ui-common" }
 client-core = { path = "client-core" }
 storage-common ={ path = "storage/storage-common" }
+keystone = { path = "keystone" }
 
 [workspace.lints.clippy]
 allow_attributes = "warn"
