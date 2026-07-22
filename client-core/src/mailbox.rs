@@ -1,11 +1,3 @@
-pub fn epoch_now(seconds_per_epoch: u64) -> u64 {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    now / seconds_per_epoch
-}
-
 pub fn mailbox_address(pairwise_root: &[u8; 32], direction: u8, epoch: u64) -> String {
     let info = [
         keystone::labels::MAILBOX,

@@ -1,6 +1,19 @@
 [workspace]
 resolver = "2"
-members = ["client-core", "keystone", "relay", "ui/ui-common", "ui/mobile", "ui/web", "ui/desktop", "storage/storage-common", "storage/storage-sqlite", "examples/*"]
+members = [
+    "client-core", 
+    "keystone", 
+    "relay", 
+    "onlyfriends-time",
+    "ui/ui-common", 
+    "ui/mobile", 
+    "ui/web", 
+    "ui/desktop", 
+    "storage/storage-common", 
+    "storage/storage-sqlite", 
+    "storage/storage-web",
+    "examples/*"
+]
 
 [workspace.dependencies]
 dioxus = { version = "0.8.0-alpha.0", default-features = false }
@@ -31,11 +44,15 @@ thiserror = "2.0.18"
 xdg = "3.0.0"
 winit = "0.31.0-beta.2"
 winit-wayland = "0.31.0-beta.2"
+web-sys = "0.3"
+async-trait = "0.1.91"
 
+onlyfriends-time = { path = "onlyfriends-time" }
 ui = { path = "ui/ui-common" }
 client-core = { path = "client-core" }
 storage-common = { path = "storage/storage-common" }
 storage-sqlite = { path = "storage/storage-sqlite" }
+storage-web = { path = "storage/storage-web" }
 keystone = { path = "keystone" }
 
 [workspace.lints.clippy]

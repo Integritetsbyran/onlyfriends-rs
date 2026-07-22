@@ -38,7 +38,7 @@ pub fn SetupPage(
     if let State::Initial = state() {
         state.set(State::LoadingAccount);
         spawn(async move {
-            match client_core::Account::open(get_storage(())) {
+            match client_core::Account::open(get_storage(())).await {
                 Ok(Some(acc)) => {
                     account.set(Some(Arc::new(Mutex::new(acc))));
                     on_complete.call(());
@@ -74,7 +74,7 @@ pub fn SetupPage(
         state.set(State::Submitting);
 
         spawn(async move {
-            match client_core::Account::create_new(get_storage.call(()), &relay) {
+            match client_core::Account::create_new(get_storage.call(()), &relay).await {
                 Ok(acc) => {
                     // Best-effort: set the profile; ignore errors here — user can update later.
                     let _ = acc.set_profile(&name, &bio_text).await;

@@ -1,8 +1,9 @@
 use keystone::{identity::SigningPublicKey, response::ResponseInner};
+use serde::{Deserialize, Serialize};
 
 use crate::storage::StorageError;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ResponseKind {
     Reaction,
     Comment,
@@ -29,6 +30,7 @@ impl TryFrom<u8> for ResponseKind {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoredResponse {
     pub author: SigningPublicKey,
     pub kind: ResponseKind,

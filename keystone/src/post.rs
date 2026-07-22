@@ -3,6 +3,7 @@ use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::media::Media;
 use crate::signing::Signature;
+use onlyfriends_time::seconds_since_epoch;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,10 +82,7 @@ pub fn seal_post(
 
     let content_key: [u8; 32] = crypto::random_bytes();
     let (body_nonce, body_ct) = crypto::aead_encrypt(&content_key, &post);
-    let created_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+    let created_at = seconds_since_epoch();
 
     let mut post = EncryptedPost {
         id: PostId::random(),

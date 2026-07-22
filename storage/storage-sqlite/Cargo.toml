@@ -9,3 +9,4 @@ storage-common = { workspace = true }
 thiserror = { workspace = true }
 keystone = { workspace = true }
 mime = { workspace = true }
+async-trait = { workspace = true }

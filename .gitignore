@@ -5,3 +5,4 @@
 # Flatpak
 /repo
 **/*.flatpak
+ui/web/.vscode/settings.json

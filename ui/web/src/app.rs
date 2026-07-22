@@ -1,16 +1,10 @@
+use dioxus::prelude::*;
+
 use client_core::account::Store;
-use dioxus_native::prelude::*;
-use dioxus_router::hooks::use_navigator;
-use dioxus_router::{Link, Outlet, Routable, Router};
-use image::GenericImageView;
 use std::sync::Arc;
-use storage_sqlite::SqliteStorage;
+use storage_web::WebStorage;
 use tokio::sync::Mutex;
-use ui::{context, pages};
-
-mod config;
-
-const APP_CSS: Asset = ui::APP_CSS;
+use ui::{APP_CSS, context, pages};
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -31,34 +25,10 @@ enum Route {
         /// Own profile.
         #[route("/profile")]
         Profile {},
-        /// App preferences.
-        #[route("/prefs")]
-        Prefs {},
 }
 
-fn main() {
-    const ICON: &[u8] = include_bytes!("../../ui-common/assets/icon_x128.png");
-    let icon = image::load_from_memory_with_format(ICON, image::ImageFormat::Png).unwrap();
-    let (width, height) = icon.dimensions();
-    let icon = winit::icon::RgbaIcon::new(icon.into_rgba8().into_vec(), width, height).unwrap();
-
-    let wayland_attrs = winit_wayland::WindowAttributesWayland::default()
-        // Set application id. This decides the icon on Linux/Wayland.
-        .with_name("org.integritetsbyran.OnlyFriends", "OnlyFriends");
-
-    // Configure window attributes
-    let window_attrs = dioxus_native::WindowAttributes::default()
-        .with_title("OnlyFriends")
-        .with_platform_attributes(Box::new(wayland_attrs))
-        // Set the icon directly on platforms that support it.
-        .with_window_icon(Some(icon.into()));
-
-    dioxus_native::launch_cfg(App, vec![], vec![Box::new(window_attrs)]);
-}
-
-/// Root component — provides the account context for the entire tree.
 #[component]
-fn App() -> Element {
+pub fn App() -> Element {
     use_context_provider(|| Signal::new(None::<context::AppAccount>));
     use_context_provider(|| Signal::new(None::<context::ModalContent>));
 
@@ -81,7 +51,6 @@ fn AppLayout() -> Element {
                     Link { to: Route::Feed {}, class: "nav-tab", "Feed" }
                     Link { to: Route::Friends {}, class: "nav-tab", "Friends" }
                     Link { to: Route::Profile {}, class: "nav-tab", "Profile" }
-                    Link { to: Route::Prefs {}, class: "nav-tab", "⚙" }
                 }
             }
             Outlet::<Route> {}
@@ -113,15 +82,25 @@ fn Guard() -> Element {
 #[component]
 fn Setup() -> Element {
     let nav = use_navigator();
-    let db_path = config::db_path().unwrap();
-    let storage: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
-    let callback = use_callback(move |_| storage.clone());
+    let mut storage = use_signal(|| None::<Store>);
+
+    use_effect(move || {
+        spawn(async move {
+            let s: Store = Arc::new(Mutex::new(WebStorage::open("TMP").await.unwrap()));
+            storage.set(Some(s));
+        });
+    });
+
     rsx! {
-        pages::SetupPage {
-            on_complete: move |_| {
-                nav.push(Route::Feed {});
-            },
-            get_storage: callback,
+        if let Some(store) = storage() {
+            pages::SetupPage {
+                on_complete: move |_| {
+                    nav.push(Route::Feed {});
+                },
+                get_storage: move || store.clone(),
+            }
+        } else {
+            div { class: "loading", "Loading…" }
         }
     }
 }
@@ -144,12 +123,5 @@ fn Friends() -> Element {
 fn Profile() -> Element {
     rsx! {
         pages::ProfilePage {}
-    }
-}
-
-#[component]
-fn Prefs() -> Element {
-    rsx! {
-        pages::Prefs {}
     }
 }

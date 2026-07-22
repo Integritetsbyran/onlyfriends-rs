@@ -18,7 +18,13 @@ pub fn Prefs() -> Element {
         let Some(account) = account else { return };
         spawn(async move {
             let account = account.lock().await;
-            let relay_config = account.store().unwrap().load_relay_config().ok().flatten();
+            let relay_config = account
+                .store()
+                .await
+                .load_relay_config()
+                .await
+                .ok()
+                .flatten();
             if let Some(relay_config) = relay_config {
                 relay_url.set(relay_config.url);
             }
@@ -42,7 +48,7 @@ pub fn Prefs() -> Element {
 
         spawn(async move {
             let mut account = account.lock().await;
-            match account.set_relay_url(url) {
+            match account.set_relay_url(url).await {
                 Ok(()) => {
                     save_ok.set(true);
                     editing.set(false);
@@ -71,9 +77,7 @@ pub fn Prefs() -> Element {
                     p { class: "error-msg", "{save_err}" }
                 }
                 div { class: "profile-actions",
-                    button {
-                        class: "btn btn-primary",
-                        onclick: save,
+                    button { class: "btn btn-primary", onclick: save,
                         if *saving.read() {
                             "Saving…"
                         } else {

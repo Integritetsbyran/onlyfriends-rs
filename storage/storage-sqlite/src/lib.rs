@@ -415,54 +415,55 @@ impl SqliteStorage {
     }
 }
 
+#[async_trait::async_trait]
 impl Storage for SqliteStorage {
-    fn save_identity(&mut self, id: &keystone::Identity) -> StorageResult<()> {
+    async fn save_identity(&mut self, id: &keystone::Identity) -> StorageResult<()> {
         self.save_identity_inner(id)?;
         Ok(())
     }
 
-    fn load_identity(&mut self) -> StorageResult<Option<keystone::Identity>> {
+    async fn load_identity(&mut self) -> StorageResult<Option<keystone::Identity>> {
         Ok(self.load_identity_inner()?)
     }
 
-    fn save_relay_config(&mut self, config: &RelayConfig) -> StorageResult<()> {
+    async fn save_relay_config(&mut self, config: &RelayConfig) -> StorageResult<()> {
         self.save_relay_config_inner(config)?;
         Ok(())
     }
 
-    fn load_relay_config(&mut self) -> StorageResult<Option<RelayConfig>> {
+    async fn load_relay_config(&mut self) -> StorageResult<Option<RelayConfig>> {
         Ok(self.load_relay_config_inner()?)
     }
 
-    fn save_friend(&mut self, f: &keystone::Friend) -> StorageResult<()> {
+    async fn save_friend(&mut self, f: &keystone::Friend) -> StorageResult<()> {
         self.save_friend_inner(f)?;
         Ok(())
     }
 
-    fn load_friends(&mut self) -> StorageResult<Vec<keystone::Friend>> {
+    async fn load_friends(&mut self) -> StorageResult<Vec<keystone::Friend>> {
         Ok(self.load_friends_inner()?)
     }
 
-    fn load_friend_by_sign_pub(
+    async fn load_friend_by_sign_pub(
         &mut self,
         friend: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Friend>> {
         Ok(self.load_friend_by_sign_pub_inner(friend)?)
     }
 
-    fn save_profile(&mut self, p: &keystone::Profile) -> StorageResult<()> {
+    async fn save_profile(&mut self, p: &keystone::Profile) -> StorageResult<()> {
         self.save_profile_inner(p)?;
         Ok(())
     }
 
-    fn load_profile(
+    async fn load_profile(
         &mut self,
         owner: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Profile>> {
         Ok(self.load_profile_inner(owner)?)
     }
 
-    fn save_post(
+    async fn save_post(
         &mut self,
         encrypted: &keystone::EncryptedPost,
         post: &PostContent,
@@ -470,11 +471,11 @@ impl Storage for SqliteStorage {
         Ok(self.save_post_inner(encrypted, post)?)
     }
 
-    fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {
+    async fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {
         Ok(self.load_posts_inner()?)
     }
 
-    fn save_response(
+    async fn save_response(
         &mut self,
         post_id: &PostId,
         response: &StoredResponse,
@@ -482,11 +483,11 @@ impl Storage for SqliteStorage {
         Ok(self.save_response_inner(post_id, response)?)
     }
 
-    fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
+    async fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
         Ok(self.load_responses_for_inner(post_id)?)
     }
 
-    fn get_cursor(
+    async fn get_cursor(
         &mut self,
         friend: &SigningPublicKey,
         direction: u8,
@@ -495,13 +496,13 @@ impl Storage for SqliteStorage {
         Ok(self.get_cursor_inner(friend, direction, epoch)?)
     }
 
-    fn set_cursor(
+    async fn set_cursor(
         &mut self,
-        friend: &SigningPublicKey,
+        friend: SigningPublicKey,
         direction: u8,
         epoch: u64,
         index: usize,
     ) -> StorageResult<()> {
-        Ok(self.set_cursor_inner(friend, direction, epoch, index)?)
+        Ok(self.set_cursor_inner(&friend, direction, epoch, index)?)
     }
 }

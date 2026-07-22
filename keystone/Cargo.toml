@@ -15,3 +15,4 @@ x25519-dalek = { workspace = true, features = ["static_secrets"] }
 image.workspace = true
 mime.workspace = true
 serde_with.workspace = true
+onlyfriends-time = { workspace = true }

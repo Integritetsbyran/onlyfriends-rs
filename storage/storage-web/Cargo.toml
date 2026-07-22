@@ -1,0 +1,16 @@
+[package]
+name = "storage-web"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+storage-common = { workspace = true}
+thiserror = { workspace = true }
+keystone = { workspace = true }
+web-sys = { workspace = true }
+deli = "0.2.0"
+serde = { workspace = true }
+async-trait = { workspace = true }
+
+# Necessary to enable a sub-dependency of keystone to work in the browser.
+getrandom = { version = "0.2", features = ["js"] }
