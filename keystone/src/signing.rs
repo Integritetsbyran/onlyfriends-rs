@@ -56,10 +56,12 @@ impl<'de> Deserialize<'de> for Signature {
     where
         D: serde::Deserializer<'de>,
     {
-        let bytes: &[u8] = Deserialize::deserialize(deserializer)?;
+        // Using Vec instead of &[u8] here because serde_wasm_bindgen's deserializer doesn't support &[u8] and will fail to deserialize it (not entirely clear why).
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
         let expected_len = "64"; // ed25519 signatures are 64 bytes
         Ok(Signature {
             inner: bytes
+                .as_slice()
                 .try_into()
                 .map_err(|_| D::Error::invalid_length(bytes.len(), &expected_len))?,
         })

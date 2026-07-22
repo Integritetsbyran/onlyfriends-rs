@@ -12,6 +12,10 @@ use axum::{
 };
 use clap::Parser;
 use serde::Deserialize;
+use tower_http::{
+    cors::{self, CorsLayer},
+    trace::TraceLayer,
+};
 use tracing_subscriber::EnvFilter;
 
 use crate::postcard::{Postcard, PostcardRaw};
@@ -72,8 +76,15 @@ async fn main() {
 
     let store: SharedStore = Arc::new(Mutex::new(Store::default()));
 
+    let cors = CorsLayer::new()
+        .allow_methods(cors::Any)
+        .allow_origin(cors::Any)
+        .allow_headers(cors::Any);
+
     let app = Router::new()
         .route("/mailbox/{addr}", post(post_mailbox).get(get_mailbox))
+        .layer(cors)
+        .layer(TraceLayer::new_for_http())
         .with_state(store);
 
     let listener = tokio::net::TcpListener::bind(&opt.bind).await.unwrap();

@@ -1,7 +1,8 @@
 use client_core::account::SyncResult;
 use keystone::{media::Media, post::PostContent};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use storage_sqlite::SqliteStorage;
+use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -13,9 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let bob_db = Arc::new(Mutex::new(SqliteStorage::open("bob.sqlite")?));
     let carl_db = Arc::new(Mutex::new(SqliteStorage::open("carl.sqlite")?));
 
-    let mut alice = client_core::Account::create_new(alice_db, "http://127.0.0.1:3000")?;
-    let mut bob = client_core::Account::create_new(bob_db, "http://127.0.0.1:3000")?;
-    let mut carl = client_core::Account::create_new(carl_db, "http://127.0.0.1:3000")?;
+    let mut alice = client_core::Account::create_new(alice_db, "http://127.0.0.1:3000").await?;
+    let mut bob = client_core::Account::create_new(bob_db, "http://127.0.0.1:3000").await?;
+    let mut carl = client_core::Account::create_new(carl_db, "http://127.0.0.1:3000").await?;
 
     let bob_id = bob.identity.public();
     let carl_id = carl.identity.public();
@@ -112,7 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     ] {
         println!("Checking {name}s feed");
 
-        let feed = account.load_feed()?;
+        let feed = account.load_feed().await?;
         assert_eq!(
             feed.len(),
             1,

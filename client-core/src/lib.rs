@@ -3,7 +3,7 @@ pub mod mailbox;
 pub mod relay_client;
 
 pub use account::{Account, FeedComment, FeedPost, FeedReaction};
-pub use mailbox::{epoch_now, mailbox_address, my_direction};
+pub use mailbox::{mailbox_address, my_direction};
 pub use relay_client::RelayClient;
 
 // Re-export the keystone types that the UI layer needs directly.

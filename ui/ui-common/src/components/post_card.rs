@@ -1,19 +1,16 @@
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
+use dioxus::logger::tracing;
 use dioxus::prelude::*;
 use keystone::media::Media;
+use onlyfriends_time::seconds_since_epoch;
+use std::sync::Arc;
 
 use crate::components::{CommentList, ReactionBar};
 use crate::context::{self, ModalContent};
 
 fn format_age(ts: u64) -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
+    let now = seconds_since_epoch();
     let diff = now.saturating_sub(ts);
     if diff < 60 {
         format!("{diff}s ago")
@@ -50,28 +47,35 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
     // Try to resolve author display name from stored profiles.
     let author_key = post.author;
     use_effect(move || {
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        let Some(arc) = acc_opt else { return };
+        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
+            return;
+        };
         spawn(async move {
             let acc = arc.lock().await;
-            if let Ok(Some(profile)) = acc
-                .store()
-                .and_then(|mut s| s.load_profile(&author_key).map_err(Into::into))
-            {
-                author_name.set(profile.display_name.clone());
-            } else {
-                // Check if it's our own post.
-                let own = acc.identity.public().sign_pub;
-                if own == author_key {
-                    if let Ok(Some(p)) = acc
-                        .store()
-                        .and_then(|mut s| s.load_profile(&own).map_err(Into::into))
-                    {
-                        author_name.set(format!("{} (you)", p.display_name));
-                    } else {
-                        author_name.set("You".to_string());
+            let result: client_core::Result<()> = async {
+                match acc.store().await.load_profile(&author_key).await? {
+                    Some(profile) => {
+                        author_name.set(profile.display_name.clone());
                     }
-                }
+                    None => {
+                        let own = acc.identity.public().sign_pub;
+                        if own != author_key {
+                            return Ok(());
+                        }
+
+                        if let Some(p) = acc.store().await.load_profile(&own).await? {
+                            author_name.set(format!("{} (you)", p.display_name));
+                        } else {
+                            author_name.set("You".to_string());
+                        }
+                    }
+                };
+                Ok(())
+            }
+            .await;
+
+            if let Err(e) = result {
+                tracing::warn!("Failed to load user profile: {e}");
             }
         });
     });

@@ -55,7 +55,11 @@ pub fn NewPostForm(on_posted: EventHandler<()>) -> Element {
                     class: "btn btn-primary",
                     disabled: *posting.read(),
                     onclick: move |_| do_post(),
-                    if *posting.read() { "Posting…" } else { "Post" }
+                    if *posting.read() {
+                        "Posting…"
+                    } else {
+                        "Post"
+                    }
                 }
             }
         }

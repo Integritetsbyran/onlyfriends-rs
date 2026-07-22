@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 
 use crate::context;
 
@@ -15,17 +15,26 @@ pub fn ProfilePage() -> Element {
 
     // Load own profile on mount.
     use_effect(move || {
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        if let Some(arc) = acc_opt {
-            spawn(async move {
+        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
+            return;
+        };
+
+        spawn(async move {
+            let result: client_core::Result<()> = async {
                 let acc = arc.lock().await;
                 let sign_pub = acc.identity.public().sign_pub;
-                if let Ok(Ok(Some(profile))) = acc.store().map(|mut s| s.load_profile(&sign_pub)) {
+                if let Some(profile) = acc.store().await.load_profile(&sign_pub).await? {
                     display_name.set(profile.display_name.clone());
                     bio.set(profile.bio.clone());
                 }
-            });
-        }
+                Ok(())
+            }
+            .await;
+
+            if let Err(e) = result {
+                tracing::warn!("Failed to load profile: {e}");
+            }
+        });
     });
 
     let save = move |_| {
@@ -37,8 +46,9 @@ pub fn ProfilePage() -> Element {
             return;
         }
 
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        let Some(arc) = acc_opt else { return };
+        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
+            return;
+        };
 
         save_err.set(String::new());
         save_ok.set(false);

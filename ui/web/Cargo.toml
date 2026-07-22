@@ -1,13 +1,17 @@
 [package]
 name = "onlyfriends-web"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
-[dependencies]
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 dioxus = { workspace = true, features = ["router"] }
 ui = { workspace = true }
 # Necessary to enable a sub-dependency of keystone to work in the browser.
 getrandom = { version = "0.2", features = ["js"] }
+web-sys = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+storage-web = { workspace = true }
+client-core = { workspace = true }
 
 [features]
 default = ["web"]

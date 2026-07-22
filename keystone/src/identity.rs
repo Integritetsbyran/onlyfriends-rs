@@ -1,7 +1,7 @@
 use crate::{crypto, labels};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MasterSeed([u8; 32]);
 
 impl MasterSeed {
@@ -151,7 +151,7 @@ mod tests {
     fn same_seed_same_identity() {
         let seed = MasterSeed::random();
         assert_eq!(
-            Identity::from_seed(seed.clone()).public(),
+            Identity::from_seed(seed).public(),
             Identity::from_seed(seed).public()
         )
     }

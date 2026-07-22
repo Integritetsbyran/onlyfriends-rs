@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{logger::tracing, prelude::*};
 
 use crate::{components::FriendItem, context};
 
@@ -31,21 +31,28 @@ pub fn FriendsPage() -> Element {
 
     // Load friends + own key on mount.
     use_effect(move || {
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        if let Some(arc) = acc_opt {
-            spawn(async move {
+        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
+            return;
+        };
+
+        spawn(async move {
+            let result: client_core::Result<()> = async {
                 let acc = arc.lock().await;
+
                 let pub_id = acc.identity.public();
                 let hex = bytes_to_hex(&pub_id.to_bytes());
                 own_hex.set(hex);
-                if let Ok(list) = acc
-                    .store()
-                    .and_then(|mut s| s.load_friends().map_err(Into::into))
-                {
-                    friends.set(list);
-                }
-            });
-        }
+
+                let list = acc.store().await.load_friends().await?;
+                friends.set(list);
+                Ok(())
+            }
+            .await;
+
+            if let Err(e) = result {
+                tracing::warn!("Failed to load friends: {e}");
+            };
+        });
     });
 
     // Add-friend form state.
@@ -88,19 +95,27 @@ pub fn FriendsPage() -> Element {
 
         spawn(async move {
             let mut acc = arc.lock().await;
-            match acc.add_friend(&their_pub, &nick).await {
-                Ok(_) => {
-                    their_key_hex.set(String::new());
-                    nickname_input.set(String::new());
-                    if let Ok(list) = acc
-                        .store()
-                        .and_then(|mut s| s.load_friends().map_err(Into::into))
-                    {
-                        friends.set(list);
-                    }
-                }
-                Err(e) => add_err.set(format!("Failed to add friend: {e}")),
+
+            if let Err(e) = acc.add_friend(&their_pub, &nick).await {
+                add_err.set(format!("Failed to add friend: {e}"));
+                adding.set(false);
+                return;
             }
+
+            let result: client_core::Result<()> = async {
+                their_key_hex.set(String::new());
+                nickname_input.set(String::new());
+
+                let list = acc.store().await.load_friends().await?;
+                friends.set(list);
+                Ok(())
+            }
+            .await;
+
+            if let Err(e) = result {
+                add_err.set(format!("Failed to get new friends list: {e:?}"));
+            }
+
             adding.set(false);
         });
     };

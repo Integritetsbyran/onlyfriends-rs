@@ -17,39 +17,43 @@ pub fn FeedPage() -> Element {
 
     // Auto-sync + load on mount.
     use_effect(move || {
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        if let Some(arc) = acc_opt {
-            syncing.set(true);
-            sync_err.set(String::new());
-            spawn(async move {
-                let mut acc = arc.lock().await;
-                if let Err(e) = acc.sync().await {
-                    sync_err.set(format!("Sync error: {e}"));
+        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
+            return;
+        };
+
+        syncing.set(true);
+        sync_err.set(String::new());
+        spawn(async move {
+            let mut acc = arc.lock().await;
+
+            if let Err(e) = acc.sync().await {
+                sync_err.set(format!("Sync error: {e}"));
+            }
+
+            match acc.load_feed().await {
+                Ok(feed) => {
+                    let feed = feed.into_iter().map(Arc::new).collect();
+                    posts.set(feed);
                 }
-                match acc.load_feed() {
-                    Ok(feed) => {
-                        let feed = feed.into_iter().map(Arc::new).collect();
-                        posts.set(feed);
-                    }
-                    Err(e) => sync_err.set(format!("Load error: {e}")),
-                }
-                syncing.set(false);
-            });
-        }
+                Err(e) => sync_err.set(format!("Load error: {e}")),
+            }
+            syncing.set(false);
+        });
     });
 
     // Callback given to NewPostForm so it can reload the feed after posting.
     let refresh = move |_| {
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        if let Some(arc) = acc_opt {
-            spawn(async move {
-                let mut acc = arc.lock().await;
-                if let Ok(feed) = acc.load_feed() {
-                    let feed = feed.into_iter().map(Arc::new).collect();
-                    posts.set(feed);
-                }
-            });
-        }
+        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
+            return;
+        };
+
+        spawn(async move {
+            let mut acc = arc.lock().await;
+            if let Ok(feed) = acc.load_feed().await {
+                let feed = feed.into_iter().map(Arc::new).collect();
+                posts.set(feed);
+            }
+        });
     };
 
     rsx! {
