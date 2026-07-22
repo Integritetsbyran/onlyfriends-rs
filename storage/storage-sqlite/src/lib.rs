@@ -88,7 +88,7 @@ pub struct SqliteStorage {
     conn: rusqlite::Connection,
 }
 
-// TODO: Probably not safe to implement these. :Sweat_smile:
+// TODO: Probably not safe to implement this. :Sweat_smile:
 unsafe impl Sync for SqliteStorage {}
 
 impl SqliteStorage {
