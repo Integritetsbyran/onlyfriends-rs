@@ -90,7 +90,6 @@ pub struct SqliteStorage {
 
 // TODO: Probably not safe to implement these. :Sweat_smile:
 unsafe impl Sync for SqliteStorage {}
-unsafe impl Send for SqliteStorage {}
 
 impl SqliteStorage {
     pub fn open(path: &str) -> Result<Self, StorageError> {
