@@ -1,11 +1,19 @@
+use std::sync::Arc;
+use storage_sqlite::SqliteStorage;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for f in ["alice.sqlite", "bob.sqlite", "carl.sqlite"] {
         let _ = std::fs::remove_file(f);
     }
-    let alice = client_core::Account::open("alice.sqlite", "http://127.0.0.1:3000")?;
-    let bob = client_core::Account::open("bob.sqlite", "http://127.0.0.1:3000")?;
-    let carl = client_core::Account::open("carl.sqlite", "http://127.0.0.1:3000")?;
+
+    let alice_db = Arc::new(SqliteStorage::open("alice.sqlite")?);
+    let bob_db = Arc::new(SqliteStorage::open("bob.sqlite")?);
+    let carl_db = Arc::new(SqliteStorage::open("carl.sqlite")?);
+
+    let alice = client_core::Account::open(alice_db, "http://127.0.0.1:3000")?;
+    let bob = client_core::Account::open(bob_db, "http://127.0.0.1:3000")?;
+    let carl = client_core::Account::open(carl_db, "http://127.0.0.1:3000")?;
     println!("Identities generated.");
 
     alice.add_friend(&bob.identity.public(), "Bob").await?;

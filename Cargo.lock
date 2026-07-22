@@ -1071,8 +1071,6 @@ dependencies = [
  "serde_json",
  "storage-common",
  "thiserror 2.0.18",
- "tokio",
- "tracing-subscriber",
 ]
 
 [[package]]
