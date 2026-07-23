@@ -8,7 +8,7 @@ pub enum StorageError {
 
 pub type StorageResult<T> = std::result::Result<T, StorageError>;
 
-pub trait Storage {
+pub trait Storage: Send + Sync {
     fn save_identity(&self, id: &keystone::Identity) -> StorageResult<usize>;
     fn load_identity(&self) -> StorageResult<Option<keystone::Identity>>;
     fn save_friend(&self, f: &keystone::Friend) -> StorageResult<usize>;

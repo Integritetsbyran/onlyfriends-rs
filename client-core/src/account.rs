@@ -13,9 +13,6 @@ pub struct Account {
     pub relay: RelayClient,
 }
 
-// TODO: Check if this is safe. Think at some point. goodnight
-unsafe impl Send for Account {}
-
 #[derive(Debug)]
 pub struct SyncResult {
     pub new_posts: Vec<String>,
