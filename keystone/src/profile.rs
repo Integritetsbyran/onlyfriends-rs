@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Identity;
+use crate::{Identity, identity::SigningPublicKey};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Profile {
-    pub owner: [u8; 32],
+    pub owner: SigningPublicKey,
     pub display_name: String,
     pub bio: String,
     pub version: u64,

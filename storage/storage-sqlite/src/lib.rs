@@ -1,5 +1,6 @@
 use std::sync::{Mutex, MutexGuard};
 
+use keystone::{identity::SigningPublicKey, post::PostId};
 use storage_common::{
     storage::{Storage, StorageError, StorageResult},
     types::{stored_post::StoredPost, stored_response::StoredResponse},
@@ -57,6 +58,8 @@ pub enum SqliteStorageError {
     SqliteError(#[from] rusqlite::Error),
     #[error("Mutex error: {0}")]
     MutexError(String),
+    #[error("Storage error: {0}")]
+    StorageError(#[from] StorageError),
 }
 
 impl From<SqliteStorageError> for StorageError {
@@ -64,6 +67,7 @@ impl From<SqliteStorageError> for StorageError {
         match err {
             SqliteStorageError::SqliteError(e) => StorageError::QueryError(e.to_string()),
             SqliteStorageError::MutexError(e) => StorageError::QueryError(e),
+            SqliteStorageError::StorageError(e) => e,
         }
     }
 }
@@ -110,12 +114,12 @@ impl SqliteStorage {
         }
     }
 
-    fn save_friend_impl(&self, f: &keystone::Friend) -> Result<usize, SqliteStorageError> {
+    fn save_friend_impl(&self, f: &keystone::Friend) -> Result<(), SqliteStorageError> {
         let conn = self.get_conn()?;
-        Ok(conn.execute(
+        conn.execute(
             "INSERT INTO friends (sign_pub, dh_pub, nickname, pairwise_root) VALUES (?1, ?2, ?3, ?4)", 
-            (&f.public.sign_pub, &f.public.dh_pub, &f.nickname, &f.pairwise_root))?
-        )
+            (&f.public.sign_pub, &f.public.dh_pub, &f.nickname, &f.pairwise_root))?;
+        Ok(())
     }
 
     fn load_friends_impl(&self) -> Result<Vec<keystone::Friend>, SqliteStorageError> {
@@ -144,7 +148,7 @@ impl SqliteStorage {
 
     fn load_friend_by_sign_pub_impl(
         &self,
-        sign_pub: &[u8; 32],
+        sign_pub: &SigningPublicKey,
     ) -> Result<Option<keystone::Friend>, SqliteStorageError> {
         let conn = self.get_conn()?;
         let result = conn.query_row(
@@ -174,23 +178,24 @@ impl SqliteStorage {
         }
     }
 
-    fn save_profile_impl(&self, p: &keystone::Profile) -> Result<usize, SqliteStorageError> {
+    fn save_profile_impl(&self, p: &keystone::Profile) -> Result<(), SqliteStorageError> {
         let conn = self.get_conn()?;
-        Ok(conn.execute(
+        conn.execute(
             "INSERT OR REPLACE INTO profiles (owner, display_name, bio, version, sig)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             (&p.owner[..], &p.display_name, &p.bio, p.version, &p.sig),
-        )?)
+        )?;
+        Ok(())
     }
 
     fn load_profile_impl(
         &self,
-        owner: &[u8; 32],
+        owner_sign_pub: &SigningPublicKey,
     ) -> Result<Option<keystone::Profile>, SqliteStorageError> {
         let conn = self.get_conn()?;
         let result = conn.query_row(
             "SELECT owner, display_name, bio, version, sig FROM profiles WHERE owner = ?1",
-            [owner],
+            [&owner_sign_pub[..]],
             |r| {
                 Ok(keystone::Profile {
                     owner: r.get(0)?,
@@ -253,31 +258,41 @@ impl SqliteStorage {
 
     fn save_response_impl(
         &self,
-        post_id: &[u8; 16],
-        author: &[u8; 32],
-        kind: u8,
-        content: &str,
+        post_id: &PostId,
+        response: &StoredResponse,
     ) -> Result<bool, SqliteStorageError> {
         let conn = self.get_conn()?;
         let rows = conn.execute(
             "INSERT OR IGNORE INTO responses (post_id, author, kind, content)
              VALUES (?1, ?2, ?3, ?4)",
-            (&post_id[..], &author[..], kind, content),
+            (
+                &post_id[..],
+                &response.author[..],
+                u8::from(&response.kind),
+                &response.content,
+            ),
         )?;
         Ok(rows > 0)
     }
 
     fn load_responses_for_impl(
         &self,
-        post_id: &[u8; 16],
+        post_id: &PostId,
     ) -> Result<Vec<StoredResponse>, SqliteStorageError> {
         let conn = self.get_conn()?;
         let mut stmt =
             conn.prepare("SELECT author, kind, content FROM responses WHERE post_id = ?1")?;
+
         let rows = stmt.query_map([post_id], |r| {
             Ok(StoredResponse {
                 author: r.get(0)?,
-                kind: r.get(1)?,
+                kind: r.get::<_, u8>(1)?.try_into().map_err(|err| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1,
+                        rusqlite::types::Type::Integer,
+                        format!("invalid response kind: {}", err).into(),
+                    )
+                })?,
                 content: r.get(2)?,
             })
         })?;
@@ -287,7 +302,7 @@ impl SqliteStorage {
 
     fn get_cursor_impl(
         &self,
-        friend_sign_pub: &[u8; 32],
+        friend_sign_pub: &SigningPublicKey,
         direction: u8,
         epoch: u64,
     ) -> Result<usize, SqliteStorageError> {
@@ -308,7 +323,7 @@ impl SqliteStorage {
 
     fn set_cursor_impl(
         &self,
-        friend_sign_pub: &[u8; 32],
+        friend_sign_pub: &SigningPublicKey,
         direction: u8,
         epoch: u64,
         index: usize,
@@ -332,8 +347,9 @@ impl Storage for SqliteStorage {
         Ok(self.load_identity_impl()?)
     }
 
-    fn save_friend(&self, f: &keystone::Friend) -> StorageResult<usize> {
-        Ok(self.save_friend_impl(f)?)
+    fn save_friend(&self, f: &keystone::Friend) -> StorageResult<()> {
+        self.save_friend_impl(f)?;
+        Ok(())
     }
 
     fn load_friends(&self) -> StorageResult<Vec<keystone::Friend>> {
@@ -342,17 +358,21 @@ impl Storage for SqliteStorage {
 
     fn load_friend_by_sign_pub(
         &self,
-        sign_pub: &[u8; 32],
+        sign_pub: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Friend>> {
         Ok(self.load_friend_by_sign_pub_impl(sign_pub)?)
     }
 
-    fn save_profile(&self, p: &keystone::Profile) -> StorageResult<usize> {
-        Ok(self.save_profile_impl(p)?)
+    fn save_profile(&self, p: &keystone::Profile) -> StorageResult<()> {
+        self.save_profile_impl(p)?;
+        Ok(())
     }
 
-    fn load_profile(&self, owner: &[u8; 32]) -> StorageResult<Option<keystone::Profile>> {
-        Ok(self.load_profile_impl(owner)?)
+    fn load_profile(
+        &self,
+        owner_sign_pub: &SigningPublicKey,
+    ) -> StorageResult<Option<keystone::Profile>> {
+        Ok(self.load_profile_impl(owner_sign_pub)?)
     }
 
     fn save_post(&self, post: &keystone::Post, body: &str) -> StorageResult<bool> {
@@ -363,23 +383,17 @@ impl Storage for SqliteStorage {
         Ok(self.load_posts_impl()?)
     }
 
-    fn save_response(
-        &self,
-        post_id: &[u8; 16],
-        author: &[u8; 32],
-        kind: u8,
-        content: &str,
-    ) -> StorageResult<bool> {
-        Ok(self.save_response_impl(post_id, author, kind, content)?)
+    fn save_response(&self, post_id: &PostId, response: &StoredResponse) -> StorageResult<bool> {
+        Ok(self.save_response_impl(post_id, response)?)
     }
 
-    fn load_responses_for(&self, post_id: &[u8; 16]) -> StorageResult<Vec<StoredResponse>> {
+    fn load_responses_for(&self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
         Ok(self.load_responses_for_impl(post_id)?)
     }
 
     fn get_cursor(
         &self,
-        friend_sign_pub: &[u8; 32],
+        friend_sign_pub: &SigningPublicKey,
         direction: u8,
         epoch: u64,
     ) -> StorageResult<usize> {
@@ -388,7 +402,7 @@ impl Storage for SqliteStorage {
 
     fn set_cursor(
         &self,
-        friend_sign_pub: &[u8; 32],
+        friend_sign_pub: &SigningPublicKey,
         direction: u8,
         epoch: u64,
         index: usize,

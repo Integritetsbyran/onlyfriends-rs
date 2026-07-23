@@ -1,12 +1,13 @@
 use dioxus::prelude::*;
+use keystone::{identity::SigningPublicKey, post::PostId};
 
 use crate::context;
 
 /// Emoji reaction bar displayed under a post.
 #[component]
 pub fn ReactionBar(
-    post_id: [u8; 16],
-    post_author: [u8; 32],
+    post_id: PostId,
+    post_author: SigningPublicKey,
     reactions: Vec<client_core::FeedReaction>,
 ) -> Element {
     let account = context::use_app_account();
@@ -49,10 +50,8 @@ pub fn ReactionBar(
     rsx! {
         div { class: "reaction-bar",
             // Existing reactions
-            for (emoji, count) in grouped.iter() {
-                span { class: "reaction-pill",
-                    "{emoji} {count}"
-                }
+            for (emoji , count) in grouped.iter() {
+                span { class: "reaction-pill", "{emoji} {count}" }
             }
 
             // Inline add-reaction input

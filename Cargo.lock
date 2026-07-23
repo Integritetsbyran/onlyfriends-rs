@@ -8129,6 +8129,7 @@ version = "0.1.0"
 dependencies = [
  "client-core",
  "dioxus",
+ "keystone",
  "storage-common",
  "tokio",
 ]

@@ -1,6 +1,8 @@
+use keystone::{identity::SigningPublicKey, post::PostId};
+
 pub struct StoredPost {
-    pub id: [u8; 16],
-    pub author: [u8; 32],
+    pub id: PostId,
+    pub author: SigningPublicKey,
     pub body: String, // decrypted
     pub created_at: u64,
 }

@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
-use keystone::ResponseBody::{Comment, Reaction};
-use storage_common::storage::Storage;
+use keystone::{
+    ResponseBody::{Comment, Reaction},
+    identity::SigningPublicKey,
+    post::PostId,
+};
+use storage_common::{storage::Storage, types::stored_response::ResponseKind};
 
 use crate::{ClientError, RelayClient, epoch_now, mailbox_address, my_direction};
 
@@ -44,8 +48,8 @@ impl Default for SyncResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeedPost {
-    pub id: [u8; 16],
-    pub author: [u8; 32],
+    pub id: PostId,
+    pub author: SigningPublicKey,
     pub created_at: u64,
     pub body: String, // already decrypted
     pub reactions: Vec<FeedReaction>,
@@ -54,13 +58,13 @@ pub struct FeedPost {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeedReaction {
-    pub author: [u8; 32],
+    pub author: SigningPublicKey,
     pub emoji: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeedComment {
-    pub author: [u8; 32],
+    pub author: SigningPublicKey,
     pub text: String, // already decrypted
 }
 
@@ -214,16 +218,8 @@ impl Account {
     }
 
     fn save_response(&self, rb: keystone::response::ResponseRebroadcast) -> crate::Result<()> {
-        match rb.inner.body {
-            Reaction { emoji } => {
-                self.storage
-                    .save_response(&rb.inner.post_id, &rb.inner.author, 0, emoji.as_str())
-            }
-            Comment { text } => {
-                self.storage
-                    .save_response(&rb.inner.post_id, &rb.inner.author, 1, text.as_str())
-            }
-        }?;
+        let post_id = rb.inner.post_id;
+        self.storage.save_response(&post_id, &rb.inner.into())?;
         Ok(())
     }
 
@@ -283,8 +279,8 @@ impl Account {
 
     pub async fn react(
         &self,
-        post_id: [u8; 16],
-        post_author: &[u8; 32],
+        post_id: PostId,
+        post_author: &SigningPublicKey,
         emoji: &str,
     ) -> crate::Result<()> {
         let Some(owner) = self.storage.load_friend_by_sign_pub(post_author)? else {
@@ -306,8 +302,8 @@ impl Account {
 
     pub async fn comment(
         &self,
-        post_id: [u8; 16],
-        post_author: &[u8; 32],
+        post_id: PostId,
+        post_author: &SigningPublicKey,
         text: &str,
     ) -> crate::Result<()> {
         let Some(owner) = self.storage.load_friend_by_sign_pub(post_author)? else {
@@ -332,8 +328,9 @@ impl Account {
         let mut feed = Vec::new();
         for p in posts {
             let responses = self.storage.load_responses_for(&p.id)?;
-            let (reactions, comments): (Vec<_>, Vec<_>) =
-                responses.into_iter().partition(|r| r.kind == 0);
+            let (reactions, comments): (Vec<_>, Vec<_>) = responses
+                .into_iter()
+                .partition(|r| r.kind == ResponseKind::Reaction);
             feed.push(FeedPost {
                 id: p.id,
                 author: p.author,

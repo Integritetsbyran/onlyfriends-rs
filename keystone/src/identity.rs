@@ -1,15 +1,19 @@
 use crate::{crypto, labels};
 use serde::{Deserialize, Serialize};
 
+pub type MasterSeed = [u8; 32];
+pub type SigningPublicKey = [u8; 32];
+pub type DhPublicKey = [u8; 32];
+
 #[derive(Clone)]
 pub struct Identity {
-    pub master_seed: [u8; 32],
+    pub master_seed: MasterSeed,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PublicIdentity {
-    pub sign_pub: [u8; 32],
-    pub dh_pub: [u8; 32],
+    pub sign_pub: SigningPublicKey,
+    pub dh_pub: DhPublicKey,
 }
 
 impl Identity {
@@ -19,7 +23,7 @@ impl Identity {
         }
     }
 
-    pub fn from_seed(master_seed: [u8; 32]) -> Identity {
+    pub fn from_seed(master_seed: MasterSeed) -> Identity {
         Identity { master_seed }
     }
 

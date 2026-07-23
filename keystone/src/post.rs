@@ -1,11 +1,13 @@
 use crate::crypto::{self, SealedBox};
-use crate::identity::{Identity, PublicIdentity};
+use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use serde::{Deserialize, Serialize};
+
+pub type PostId = [u8; 16];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Post {
-    pub id: [u8; 16],
-    pub author: [u8; 32],
+    pub id: PostId,
+    pub author: SigningPublicKey,
     pub created_at: u64,
     pub body_ct: Vec<u8>,
     pub body_nonce: [u8; 24],

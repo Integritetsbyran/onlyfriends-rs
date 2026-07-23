@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 dioxus = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
+keystone = { workspace = true }
 client-core = { workspace = true }
 storage-common = { workspace = true }

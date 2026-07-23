@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use x25519_dalek::PublicKey;
 
-use crate::labels;
+use crate::{identity::DhPublicKey, labels};
 
 /// N fresh random bytes from the OS CSPRNG.
 pub fn random_bytes<const N: usize>() -> [u8; N] {
@@ -51,7 +51,7 @@ pub struct SealedBox {
 }
 
 impl SealedBox {
-    pub fn seal(recipient_dh_pub: &[u8; 32], secret: &[u8]) -> SealedBox {
+    pub fn seal(recipient_dh_pub: &DhPublicKey, secret: &[u8]) -> SealedBox {
         let eph = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
         let e_pub = x25519_dalek::PublicKey::from(&eph);
         let shared = eph.diffie_hellman(&x25519_dalek::PublicKey::from(*recipient_dh_pub));
