@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["client-core", "keystone", "relay", "ui/ui-common", "ui/mobile", "ui/web", "ui/desktop", "storage/storage-common", "storage/storage-sqlite"]
+members = ["client-core", "keystone", "relay", "ui/ui-common", "ui/mobile", "ui/web", "ui/desktop", "storage/storage-common", "storage/storage-sqlite", "examples/*"]
+exclude = ["examples/target"]
 
 [workspace.dependencies]
 dioxus = { version = "0.7.3" }
