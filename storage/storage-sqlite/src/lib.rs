@@ -5,10 +5,6 @@ use storage_common::{
     types::{stored_post::StoredPost, stored_response::StoredResponse},
 };
 
-// TODO: Ayoh ya matey, welcome to crime city. Here be no laws that have not been broken.
-// This is a crime-scene of a file. It is a crime to read this file without a warrant.
-// If you are reading this, you are hereby warned that you are committing a crime, GL & HF.
-
 const SCHEMA_SQL: &str = "
 CREATE TABLE IF NOT EXISTS identity (
     id INTEGER PRIMARY KEY CHECK (id = 0),  -- singleton row
