@@ -95,12 +95,13 @@ impl SqliteStorage {
      * Inner implementations of the DB methods.
      */
 
-    fn save_identity_impl(&self, id: &keystone::Identity) -> Result<usize, SqliteStorageError> {
+    fn save_identity_impl(&self, id: &keystone::Identity) -> Result<(), SqliteStorageError> {
         let conn = self.get_conn()?;
-        Ok(conn.execute(
+        conn.execute(
             "INSERT OR REPLACE INTO identity (id, master_seed) VALUES (0, ?1)",
             [id.master_seed],
-        )?)
+        )?;
+        Ok(())
     }
 
     fn load_identity_impl(&self) -> Result<Option<keystone::Identity>, SqliteStorageError> {
@@ -339,8 +340,9 @@ impl SqliteStorage {
 }
 
 impl Storage for SqliteStorage {
-    fn save_identity(&self, id: &keystone::Identity) -> StorageResult<usize> {
-        Ok(self.save_identity_impl(id)?)
+    fn save_identity(&self, id: &keystone::Identity) -> StorageResult<()> {
+        self.save_identity_impl(id)?;
+        Ok(())
     }
 
     fn load_identity(&self) -> StorageResult<Option<keystone::Identity>> {

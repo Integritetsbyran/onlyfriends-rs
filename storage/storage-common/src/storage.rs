@@ -16,7 +16,7 @@ pub trait Storage: Send + Sync {
     /**
      * Save our own identity to storage, only one identity can ever be stored.
      */
-    fn save_identity(&self, id: &keystone::Identity) -> StorageResult<usize>;
+    fn save_identity(&self, id: &keystone::Identity) -> StorageResult<()>;
     /**
      * Load our own identity from storage, returns None if no identity is saved.
      */
