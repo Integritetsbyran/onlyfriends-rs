@@ -1,7 +1,7 @@
 use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
-use crate::{Identity, SealedBox};
+use crate::{Identity, SealedBox, post::PostId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ResponseBody {
@@ -11,7 +11,7 @@ pub enum ResponseBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseInner {
-    pub post_id: [u8; 16],
+    pub post_id: PostId,
     pub author: [u8; 32], // responder's sign_pub
     pub body: ResponseBody,
     pub sig: Vec<u8>, // responder's signature
@@ -29,11 +29,7 @@ pub struct ResponseRebroadcast {
     pub vouch_sig: Vec<u8>, // post owner's signature over `inner`
 }
 
-pub fn create_response(
-    responder: &Identity,
-    post_id: [u8; 16],
-    body: ResponseBody,
-) -> ResponseInner {
+pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody) -> ResponseInner {
     let mut response_inner = ResponseInner {
         post_id,
         author: responder.public().sign_pub,
@@ -117,7 +113,7 @@ mod tests {
         let carl = Identity::generate();
         let bob = Identity::generate();
 
-        let post_id = [1u8; 16];
+        let post_id = PostId([1u8; 16]);
 
         // 1. Carl builds + signs a reaction, seals it to Alice (the post owner).
         let inner = create_response(
@@ -159,7 +155,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            [1u8; 16],
+            PostId([1u8; 16]),
             ResponseBody::Reaction { emoji: "x".into() },
         );
         let sealed_to_alice = seal_response(&inner, &alice.public().dh_pub);
@@ -176,7 +172,7 @@ mod tests {
 
         let mut inner = create_response(
             &carl,
-            [1u8; 16],
+            PostId([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -201,7 +197,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            [1u8; 16],
+            PostId([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -225,7 +221,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            [2u8; 16],
+            PostId([2u8; 16]),
             ResponseBody::Comment {
                 text: "cool comment".to_string(),
             },

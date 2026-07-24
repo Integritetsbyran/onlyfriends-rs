@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use keystone::post::PostId;
 
 use crate::context;
 
@@ -13,7 +14,7 @@ fn bytes_to_hex(bytes: &[u8]) -> String {
 /// Expandable comment thread under a post.
 #[component]
 pub fn CommentList(
-    post_id: [u8; 16],
+    post_id: PostId,
     post_author: [u8; 32],
     comments: Vec<client_core::FeedComment>,
 ) -> Element {

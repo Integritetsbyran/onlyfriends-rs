@@ -12,6 +12,7 @@ reqwest = { workspace = true, features = ["json"] }
 rusqlite = { workspace = true, features = ["bundled"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+mime.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

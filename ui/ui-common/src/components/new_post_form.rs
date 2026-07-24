@@ -21,8 +21,8 @@ pub fn NewPostForm(on_posted: EventHandler<()>) -> Element {
         err.set(String::new());
         posting.set(true);
         spawn(async move {
-            let acc = arc.lock().await;
-            match acc.send_post(&text).await {
+            let mut acc = arc.lock().await;
+            match acc.send_text_post(&text).await {
                 Ok(_) => {
                     body.set(String::new());
                     on_posted.call(());
