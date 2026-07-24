@@ -12,7 +12,7 @@ pub enum ResponseBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseInner {
     pub post_id: PostId,
-    pub author: SigningPublicKey, // responder's sign_pub
+    pub author: SigningPublicKey, // responder's public signing key
     pub body: ResponseBody,
     pub sig: Vec<u8>, // responder's signature
 }
@@ -70,13 +70,13 @@ pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<Res
 
 pub fn open_rebroadcast(
     recipient: &Identity,
-    owner_sign_pub: &SigningPublicKey,
+    owner: &SigningPublicKey,
     sealed: &SealedBox,
 ) -> crate::Result<ResponseRebroadcast> {
     let opened = SealedBox::open(&recipient.dh_secret(), sealed)?;
     let rb = postcard::from_bytes::<ResponseRebroadcast>(&opened)?;
 
-    let vk = ed25519_dalek::VerifyingKey::try_from(owner_sign_pub)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(owner)?;
     let sig_bytes: [u8; 64] = rb
         .vouch_sig
         .as_slice()
