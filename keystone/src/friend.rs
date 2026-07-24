@@ -14,7 +14,6 @@ pub struct Friend {
 pub fn add_friend(me: &Identity, their: &PublicIdentity, nickname: &str) -> Friend {
     let shared = me
         .dh_secret()
-        // .diffie_hellman(&x25519_dalek::PublicKey::from(their.dh_pub))
         .diffie_hellman(&(&their.dh_pub).into())
         .to_bytes();
     let me_pub = me.public();
