@@ -19,7 +19,8 @@ pub struct ResponseInner {
 
 impl ResponseInner {
     pub fn signing_bytes(&self) -> Vec<u8> {
-        postcard::to_allocvec(&(self.post_id, self.author, &self.body)).expect("serializes")
+        postcard::to_allocvec(&(self.post_id.to_bytes(), self.author.to_bytes(), &self.body))
+            .expect("serializes")
     }
 }
 
@@ -47,8 +48,7 @@ pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody
 pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<ResponseRebroadcast> {
     let opened = SealedBox::open(&owner.dh_secret(), sealed)?;
     let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&response_inner.author)
-        .map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(&response_inner.author)?;
 
     let sig_bytes: [u8; 64] = response_inner
         .sig
@@ -76,8 +76,7 @@ pub fn open_rebroadcast(
     let opened = SealedBox::open(&recipient.dh_secret(), sealed)?;
     let rb = postcard::from_bytes::<ResponseRebroadcast>(&opened)?;
 
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(owner_sign_pub)
-        .map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(owner_sign_pub)?;
     let sig_bytes: [u8; 64] = rb
         .vouch_sig
         .as_slice()
@@ -115,7 +114,7 @@ mod tests {
         let carl = Identity::generate();
         let bob = Identity::generate();
 
-        let post_id = [1u8; 16];
+        let post_id = PostId::from_bytes([1u8; 16]);
 
         // 1. Carl builds + signs a reaction, seals it to Alice (the post owner).
         let inner = create_response(
@@ -157,7 +156,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            [1u8; 16],
+            PostId::from_bytes([1u8; 16]),
             ResponseBody::Reaction { emoji: "x".into() },
         );
         let sealed_to_alice = seal_response(&inner, &alice.public().dh_pub);
@@ -174,7 +173,7 @@ mod tests {
 
         let mut inner = create_response(
             &carl,
-            [1u8; 16],
+            PostId::from_bytes([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -199,7 +198,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            [1u8; 16],
+            PostId::from_bytes([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -223,7 +222,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            [2u8; 16],
+            PostId::from_bytes([2u8; 16]),
             ResponseBody::Comment {
                 text: "cool comment".to_string(),
             },

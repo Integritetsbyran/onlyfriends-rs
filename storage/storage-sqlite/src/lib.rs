@@ -1,6 +1,10 @@
 use std::sync::{Mutex, MutexGuard};
 
-use keystone::{identity::SigningPublicKey, post::PostId};
+use keystone::{
+    Identity,
+    identity::{MasterSeed, SigningPublicKey},
+    post::PostId,
+};
 use storage_common::{
     storage::{Storage, StorageError, StorageResult},
     types::{stored_post::StoredPost, stored_response::StoredResponse},
@@ -99,7 +103,7 @@ impl SqliteStorage {
         let conn = self.get_conn()?;
         conn.execute(
             "INSERT OR REPLACE INTO identity (id, master_seed) VALUES (0, ?1)",
-            [id.master_seed],
+            [id.master_seed.to_bytes()],
         )?;
         Ok(())
     }
@@ -109,7 +113,7 @@ impl SqliteStorage {
         match conn.query_row("SELECT master_seed FROM identity WHERE id = 0", [], |r| {
             r.get(0)
         }) {
-            Ok(seed) => Ok(Some(keystone::Identity::from_seed(seed))),
+            Ok(seed) => Ok(Some(Identity::from_seed(MasterSeed::from_bytes(seed)))),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -119,7 +123,7 @@ impl SqliteStorage {
         let conn = self.get_conn()?;
         conn.execute(
             "INSERT INTO friends (sign_pub, dh_pub, nickname, pairwise_root) VALUES (?1, ?2, ?3, ?4)", 
-            (&f.public.sign_pub, &f.public.dh_pub, &f.nickname, &f.pairwise_root))?;
+            (&f.public.sign_pub.to_bytes(), &f.public.dh_pub.to_bytes(), &f.nickname, &f.pairwise_root))?;
         Ok(())
     }
 
@@ -128,15 +132,15 @@ impl SqliteStorage {
         let mut stmt =
             conn.prepare("SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends")?;
         let rows = stmt.query_map([], |row| {
-            let sign_pub: Vec<u8> = row.get(0)?;
-            let dh_pub: Vec<u8> = row.get(1)?;
+            let sign_pub: [u8; 32] = row.get(0)?;
+            let dh_pub: [u8; 32] = row.get(1)?;
             let nickname: String = row.get(2)?;
-            let pairwise_root: Vec<u8> = row.get(3)?;
+            let pairwise_root: [u8; 32] = row.get(3)?;
 
             Ok(keystone::Friend {
                 public: keystone::PublicIdentity {
-                    sign_pub: sign_pub.try_into().unwrap(),
-                    dh_pub: dh_pub.try_into().unwrap(),
+                    sign_pub: sign_pub.into(),
+                    dh_pub: dh_pub.into(),
                 },
                 nickname,
                 pairwise_root: pairwise_root.try_into().unwrap(),
@@ -154,20 +158,20 @@ impl SqliteStorage {
         let conn = self.get_conn()?;
         let result = conn.query_row(
             "SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends WHERE sign_pub = ?1",
-            [sign_pub],
+            [sign_pub.to_bytes()],
             |r| {
-                let sign_pub: Vec<u8> = r.get(0)?;
-                let dh_pub: Vec<u8> = r.get(1)?;
+                let sign_pub: [u8; 32] = r.get(0)?;
+                let dh_pub: [u8; 32] = r.get(1)?;
                 let nickname: String = r.get(2)?;
-                let pairwise_root: Vec<u8> = r.get(3)?;
+                let pairwise_root: [u8; 32] = r.get(3)?;
 
                 Ok(keystone::Friend {
                     public: keystone::PublicIdentity {
-                        sign_pub: sign_pub.try_into().unwrap(),
-                        dh_pub: dh_pub.try_into().unwrap(),
+                        sign_pub: sign_pub.into(),
+                        dh_pub: dh_pub.into(),
                     },
                     nickname,
-                    pairwise_root: pairwise_root.try_into().unwrap(),
+                    pairwise_root: pairwise_root,
                 })
             },
         );
@@ -184,7 +188,13 @@ impl SqliteStorage {
         conn.execute(
             "INSERT OR REPLACE INTO profiles (owner, display_name, bio, version, sig)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            (&p.owner[..], &p.display_name, &p.bio, p.version, &p.sig),
+            (
+                &p.owner.to_byte_slice(),
+                &p.display_name,
+                &p.bio,
+                p.version,
+                &p.sig,
+            ),
         )?;
         Ok(())
     }
@@ -196,10 +206,10 @@ impl SqliteStorage {
         let conn = self.get_conn()?;
         let result = conn.query_row(
             "SELECT owner, display_name, bio, version, sig FROM profiles WHERE owner = ?1",
-            [&owner_sign_pub[..]],
+            [owner_sign_pub.to_byte_slice()],
             |r| {
                 Ok(keystone::Profile {
-                    owner: r.get(0)?,
+                    owner: SigningPublicKey::from_bytes(r.get(0)?),
                     display_name: r.get(1)?,
                     bio: r.get(2)?,
                     version: r.get(3)?,
@@ -224,7 +234,12 @@ impl SqliteStorage {
         let rows = conn.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
              VALUES (?1, ?2, ?3, ?4)",
-            (&post.id[..], &post.author[..], body, post.created_at as i64),
+            (
+                &post.id.to_bytes()[..],
+                &post.author.to_bytes()[..],
+                body,
+                post.created_at as i64,
+            ),
         )?;
         Ok(rows > 0)
     }
@@ -234,21 +249,12 @@ impl SqliteStorage {
         let mut stmt = conn
             .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
         let rows = stmt.query_map([], |r| {
+            let id: [u8; 16] = r.get(0)?;
+            let author: [u8; 32] = r.get(1)?;
+
             Ok(StoredPost {
-                id: r.get::<_, Vec<u8>>(0)?.try_into().map_err(|_| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        0,
-                        rusqlite::types::Type::Blob,
-                        "bad id length".into(),
-                    )
-                })?,
-                author: r.get::<_, Vec<u8>>(1)?.try_into().map_err(|_| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        1,
-                        rusqlite::types::Type::Blob,
-                        "bad author length".into(),
-                    )
-                })?,
+                id: id.into(),
+                author: author.into(),
                 body: r.get(2)?,
                 created_at: r.get::<_, i64>(3)? as u64,
             })
@@ -267,8 +273,8 @@ impl SqliteStorage {
             "INSERT OR IGNORE INTO responses (post_id, author, kind, content)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                &post_id[..],
-                &response.author[..],
+                post_id.to_byte_slice(),
+                response.author.to_byte_slice(),
                 u8::from(&response.kind),
                 &response.content,
             ),
@@ -284,9 +290,10 @@ impl SqliteStorage {
         let mut stmt =
             conn.prepare("SELECT author, kind, content FROM responses WHERE post_id = ?1")?;
 
-        let rows = stmt.query_map([post_id], |r| {
+        let rows = stmt.query_map([post_id.to_byte_slice()], |r| {
+            let author: [u8; 32] = r.get(0)?;
             Ok(StoredResponse {
-                author: r.get(0)?,
+                author: author.into(),
                 kind: r.get::<_, u8>(1)?.try_into().map_err(|err| {
                     rusqlite::Error::FromSqlConversionFailure(
                         1,
@@ -311,7 +318,7 @@ impl SqliteStorage {
         let result = conn.query_row(
             "SELECT last_index FROM mailbox_cursors
              WHERE friend_sign_pub = ?1 AND direction = ?2 AND epoch = ?3",
-            (&friend_sign_pub[..], direction, epoch as i64),
+            (friend_sign_pub.to_byte_slice(), direction, epoch as i64),
             |row| row.get::<_, i64>(0),
         );
 
@@ -333,7 +340,12 @@ impl SqliteStorage {
         conn.execute(
             "INSERT OR REPLACE INTO mailbox_cursors (friend_sign_pub, direction, epoch, last_index)
              VALUES (?1, ?2, ?3, ?4)",
-            (&friend_sign_pub[..], direction, epoch as i64, index as i64),
+            (
+                friend_sign_pub.to_byte_slice(),
+                direction,
+                epoch as i64,
+                index as i64,
+            ),
         )?;
         Ok(())
     }

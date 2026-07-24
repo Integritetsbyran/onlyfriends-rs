@@ -2,7 +2,38 @@ use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use serde::{Deserialize, Serialize};
 
-pub type PostId = [u8; 16];
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PostId([u8; 16]);
+
+impl PostId {
+    pub fn from_bytes(bytes: [u8; 16]) -> Self {
+        Self(bytes)
+    }
+
+    pub fn random() -> Self {
+        Self(crypto::random_bytes())
+    }
+
+    pub fn to_bytes(&self) -> [u8; 16] {
+        self.0
+    }
+
+    pub fn to_byte_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<[u8; 16]> for PostId {
+    fn from(bytes: [u8; 16]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl Default for PostId {
+    fn default() -> Self {
+        Self([0u8; 16])
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Post {
@@ -23,8 +54,8 @@ pub struct SealedPost {
 impl Post {
     pub fn signing_bytes(&self) -> Vec<u8> {
         postcard::to_allocvec(&(
-            self.id,
-            self.author,
+            self.id.to_bytes(),
+            self.author.to_bytes(),
             self.created_at,
             &self.body_ct,
             self.body_nonce,
@@ -47,7 +78,7 @@ pub fn create_post(
         .unwrap()
         .as_secs();
     let mut post = Post {
-        id: crypto::random_bytes(),
+        id: PostId::random(),
         author: author.public().sign_pub,
         created_at,
         body_ct,
@@ -76,8 +107,7 @@ pub fn open_post(
 ) -> crate::Result<String> {
     let content_key = SealedBox::open(&recipient.dh_secret(), &env.sealed_content_key)?;
 
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&author_pub.sign_pub)
-        .map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
     let sig_bytes: [u8; 64] = env
         .post
         .sig

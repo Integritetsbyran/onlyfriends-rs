@@ -2,14 +2,6 @@ use crate::context;
 use dioxus::prelude::*;
 use keystone::{identity::SigningPublicKey, post::PostId};
 
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut s, b| {
-        use std::fmt::Write as _;
-        let _ = write!(s, "{b:02x}");
-        s
-    })
-}
-
 /// Expandable comment thread under a post.
 #[component]
 pub fn CommentList(
@@ -46,7 +38,7 @@ pub fn CommentList(
         div { class: "comment-list",
             for comment in comments.iter() {
                 div { class: "comment",
-                    span { class: "comment-author", "{bytes_to_hex(&comment.author[..6])}…" }
+                    span { class: "comment-author", "{comment.author.to_short_hex()}…" }
                     span { class: "comment-text", "{comment.text}" }
                 }
             }

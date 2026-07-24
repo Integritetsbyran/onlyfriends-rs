@@ -89,7 +89,7 @@ impl Account {
         Ok(friend)
     }
 
-    pub async fn send_post(&self, body: &str) -> crate::Result<[u8; 16]> {
+    pub async fn send_post(&self, body: &str) -> crate::Result<PostId> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
@@ -101,7 +101,7 @@ impl Account {
         recipients_with_self.push(self.identity.public());
         let posts = keystone::post::create_post(&self.identity, body, &recipients_with_self);
 
-        let post_id = posts.first().map(|p| p.post.id).unwrap_or([0u8; 16]);
+        let post_id = posts.first().map(|p| p.post.id).unwrap_or_default();
         if let Some(first) = posts.first() {
             self.storage.save_post(&first.post, body)?;
         }

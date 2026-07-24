@@ -14,7 +14,8 @@ pub struct Friend {
 pub fn add_friend(me: &Identity, their: &PublicIdentity, nickname: &str) -> Friend {
     let shared = me
         .dh_secret()
-        .diffie_hellman(&x25519_dalek::PublicKey::from(their.dh_pub))
+        // .diffie_hellman(&x25519_dalek::PublicKey::from(their.dh_pub))
+        .diffie_hellman(&(&their.dh_pub).into())
         .to_bytes();
     let me_pub = me.public();
     let (lo, hi) = if me_pub.dh_pub <= their.dh_pub {
@@ -22,7 +23,7 @@ pub fn add_friend(me: &Identity, their: &PublicIdentity, nickname: &str) -> Frie
     } else {
         (their.dh_pub, me_pub.dh_pub)
     };
-    let info = [labels::PAIRWISE, &lo, &hi].concat();
+    let info = [labels::PAIRWISE, &lo.to_bytes(), &hi.to_bytes()].concat();
     let pairwise_root = crypto::derive32(&shared, &info);
     Friend {
         public: their.clone(),

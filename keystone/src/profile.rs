@@ -13,8 +13,13 @@ pub struct Profile {
 
 impl Profile {
     pub fn signing_bytes(&self) -> Vec<u8> {
-        postcard::to_allocvec(&(self.owner, &self.display_name, &self.bio, &self.version))
-            .expect("serializes")
+        postcard::to_allocvec(&(
+            self.owner.to_bytes(),
+            &self.display_name,
+            &self.bio,
+            &self.version,
+        ))
+        .expect("serializes")
     }
 }
 
@@ -36,7 +41,8 @@ pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64
 }
 
 pub fn verify_profile(p: &Profile) -> crate::Result<()> {
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&p.owner).map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::from_bytes(&p.owner.to_bytes())
+        .map_err(|_| crate::Error::BadKey)?;
 
     let sig_bytes: [u8; 64] = p
         .sig

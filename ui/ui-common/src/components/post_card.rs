@@ -22,19 +22,11 @@ fn format_age(ts: u64) -> String {
     }
 }
 
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut s, b| {
-        use std::fmt::Write as _;
-        let _ = write!(s, "{b:02x}");
-        s
-    })
-}
-
 /// A single post card in the feed.
 #[component]
 pub fn PostCard(post: client_core::FeedPost) -> Element {
     let account = context::use_app_account();
-    let mut author_name = use_signal(|| bytes_to_hex(&post.author[..8]));
+    let mut author_name = use_signal(|| post.author.to_hex());
     let mut show_comments = use_signal(|| false);
 
     // Try to resolve author display name from stored profiles.
