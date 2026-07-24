@@ -1,8 +1,8 @@
-use std::sync::Arc;
-
+use client_core::account::Store;
 use dioxus_native::prelude::*;
 use dioxus_router::hooks::use_navigator;
 use dioxus_router::{Link, Outlet, Routable, Router};
+use std::sync::{Arc, Mutex};
 
 use storage_sqlite::SqliteStorage;
 use ui::{context, pages};
@@ -92,8 +92,7 @@ fn Guard() -> Element {
 #[component]
 fn Setup() -> Element {
     let nav = use_navigator();
-    let storage: client_core::account::Store =
-        Arc::new(SqliteStorage::open(&config::db_path()).unwrap());
+    let storage: Store = Arc::new(Mutex::new(SqliteStorage::open(&config::db_path()).unwrap()));
     let callback = use_callback(move |_| storage.clone());
     rsx! {
         pages::SetupPage {

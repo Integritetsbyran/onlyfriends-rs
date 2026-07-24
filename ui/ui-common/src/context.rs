@@ -10,6 +10,7 @@ pub type AppAccount = Arc<Mutex<client_core::Account>>;
 /// `use_context_provider(|| Signal::new(None::<AppAccount>))`.
 pub fn use_app_account() -> dioxus::prelude::Signal<Option<AppAccount>> {
     use_context::<dioxus::prelude::Signal<Option<AppAccount>>>()
+}
 
 #[derive(Clone)]
 pub struct ModalContent(pub Element);

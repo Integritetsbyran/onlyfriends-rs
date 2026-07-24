@@ -38,7 +38,10 @@ pub fn FriendsPage() -> Element {
                 let pub_id = acc.identity.public();
                 let hex = bytes_to_hex(&pub_id.to_bytes());
                 own_hex.set(hex);
-                if let Ok(list) = acc.storage.load_friends() {
+                if let Ok(list) = acc
+                    .store()
+                    .and_then(|mut s| s.load_friends().map_err(Into::into))
+                {
                     friends.set(list);
                 }
             });
@@ -84,12 +87,15 @@ pub fn FriendsPage() -> Element {
         adding.set(true);
 
         spawn(async move {
-            let acc = arc.lock().await;
+            let mut acc = arc.lock().await;
             match acc.add_friend(&their_pub, &nick).await {
                 Ok(_) => {
                     their_key_hex.set(String::new());
                     nickname_input.set(String::new());
-                    if let Ok(list) = acc.storage.load_friends() {
+                    if let Ok(list) = acc
+                        .store()
+                        .and_then(|mut s| s.load_friends().map_err(Into::into))
+                    {
                         friends.set(list);
                     }
                 }

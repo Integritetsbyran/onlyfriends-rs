@@ -2,8 +2,6 @@ pub mod account;
 pub mod mailbox;
 pub mod relay_client;
 
-use std::sync::PoisonError;
-
 pub use account::{Account, FeedComment, FeedPost, FeedReaction};
 pub use mailbox::{epoch_now, mailbox_address, my_direction};
 pub use relay_client::RelayClient;
@@ -24,10 +22,8 @@ pub enum ClientError {
     RelayClientError(#[from] RelayClientError),
     #[error("Trying to interact with someone who isn't my friend: {0}")]
     NotFriendError(&'static str),
-    #[error("Poison error: {0}")]
-    PoisonError(
-        #[from] PoisonError<std::sync::MutexGuard<'static, dyn storage_common::storage::Storage>>,
-    ),
+    #[error("Failed to lock store: {0}")]
+    PoisonError(String),
 }
 
 pub type Result<T> = std::result::Result<T, ClientError>;

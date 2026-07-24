@@ -54,13 +54,19 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
         let Some(arc) = acc_opt else { return };
         spawn(async move {
             let acc = arc.lock().await;
-            if let Ok(Some(profile)) = acc.storage.load_profile(&author_key) {
+            if let Ok(Some(profile)) = acc
+                .store()
+                .and_then(|mut s| s.load_profile(&author_key).map_err(Into::into))
+            {
                 author_name.set(profile.display_name.clone());
             } else {
                 // Check if it's our own post.
                 let own = acc.identity.public().sign_pub;
                 if own == author_key {
-                    if let Ok(Some(p)) = acc.storage.load_profile(&own) {
+                    if let Ok(Some(p)) = acc
+                        .store()
+                        .and_then(|mut s| s.load_profile(&own).map_err(Into::into))
+                    {
                         author_name.set(format!("{} (you)", p.display_name));
                     } else {
                         author_name.set("You".to_string());
