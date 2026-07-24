@@ -2,7 +2,7 @@ use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PostId([u8; 16]);
 
 impl PostId {
@@ -26,12 +26,6 @@ impl PostId {
 impl From<[u8; 16]> for PostId {
     fn from(bytes: [u8; 16]) -> Self {
         Self(bytes)
-    }
-}
-
-impl Default for PostId {
-    fn default() -> Self {
-        Self([0u8; 16])
     }
 }
 

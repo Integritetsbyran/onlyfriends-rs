@@ -143,7 +143,7 @@ impl SqliteStorage {
                     dh_pub: dh_pub.into(),
                 },
                 nickname,
-                pairwise_root: pairwise_root.try_into().unwrap(),
+                pairwise_root,
             })
         })?;
 
@@ -171,7 +171,7 @@ impl SqliteStorage {
                         dh_pub: dh_pub.into(),
                     },
                     nickname,
-                    pairwise_root: pairwise_root,
+                    pairwise_root,
                 })
             },
         );
