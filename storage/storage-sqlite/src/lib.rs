@@ -1,10 +1,15 @@
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    str::FromStr,
+    sync::{Mutex, MutexGuard},
+};
 
 use keystone::{
-    identity::{MasterSeed, SigningPublicKey},
-    post::PostId,
     Identity,
+    identity::{MasterSeed, SigningPublicKey},
+    media::Media,
+    post::{PostContent, PostId},
 };
+use mime::Mime;
 use storage_common::{
     storage::{Storage, StorageError, StorageResult},
     types::{stored_post::StoredPost, stored_response::StoredResponse},
@@ -100,11 +105,6 @@ impl SqliteStorage {
         self.conn
             .lock()
             .map_err(|err| SqliteStorageError::MutexError(err.to_string()))
-    }
-
-    fn get_transaction(&mut self) -> Result<rusqlite::Transaction<'_>, SqliteStorageError> {
-        let transaction = self.conn.transaction()?;
-        Ok(transaction)
     }
 
     /*
@@ -242,7 +242,8 @@ impl SqliteStorage {
         encrypted: &keystone::EncryptedPost,
         post: &PostContent,
     ) -> Result<bool, SqliteStorageError> {
-        let transaction = self.get_transaction()?;
+        let mut conn = self.get_conn()?;
+        let transaction = conn.transaction()?;
 
         let rows = transaction.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
@@ -261,7 +262,11 @@ impl SqliteStorage {
                 transaction.execute(
                     "INSERT INTO post_media (post_id, mime, bytes)
                      VALUES (?1, ?2, ?3)",
-                    (&encrypted.id.0[..], media.mime.as_ref(), &media.bytes),
+                    (
+                        encrypted.id.to_byte_slice(),
+                        media.mime.as_ref(),
+                        &media.bytes,
+                    ),
                 )?;
             }
         }
@@ -272,7 +277,8 @@ impl SqliteStorage {
     }
 
     fn load_posts_impl(&mut self) -> Result<Vec<StoredPost>, SqliteStorageError> {
-        let transaction = self.get_transaction()?;
+        let mut conn = self.get_conn()?;
+        let transaction = conn.transaction()?;
 
         let mut select_posts = transaction
             .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
@@ -281,25 +287,12 @@ impl SqliteStorage {
             transaction.prepare("SELECT mime, bytes FROM post_media WHERE post_id = ?1")?;
 
         let rows = select_posts.query_map([], |r| {
+            let id: [u8; 16] = r.get(0)?;
+            let author: [u8; 32] = r.get(1)?;
+
             let post = StoredPost {
-                id: r
-                    .get::<_, Vec<u8>>(0)?
-                    .try_into()
-                    .map(PostId)
-                    .map_err(|_| {
-                        rusqlite::Error::FromSqlConversionFailure(
-                            0,
-                            rusqlite::types::Type::Blob,
-                            "bad id length".into(),
-                        )
-                    })?,
-                author: r.get::<_, Vec<u8>>(1)?.try_into().map_err(|_| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        1,
-                        rusqlite::types::Type::Blob,
-                        "bad author length".into(),
-                    )
-                })?,
+                id: id.into(),
+                author: author.into(),
                 body: r.get(2)?,
                 created_at: r.get::<_, i64>(3)? as u64,
                 media: vec![],
@@ -310,7 +303,7 @@ impl SqliteStorage {
         let mut posts: Vec<StoredPost> = rows.collect::<Result<_, _>>()?;
 
         for post in &mut posts {
-            let media_rows = select_media.query_map([&post.id.0], |r| {
+            let media_rows = select_media.query_map([post.id.to_byte_slice()], |r| {
                 let mime: String = r.get(0)?;
                 Ok(Media {
                     mime: Mime::from_str(&mime).unwrap(),

@@ -1,15 +1,9 @@
-use keystone::ResponseBody::{Comment, Reaction};
-use keystone::{
-    ResponseBody::{Comment, Reaction},
-    post::{PostContent, PostId},
-};
-use std::sync::Arc;
-
 use keystone::{
     ResponseBody::{Comment, Reaction},
     identity::SigningPublicKey,
-    post::PostId,
+    post::{PostContent, PostId},
 };
+use std::sync::Arc;
 use storage_common::{storage::Storage, types::stored_response::ResponseKind};
 
 use crate::{ClientError, RelayClient, epoch_now, mailbox_address, my_direction};
@@ -75,7 +69,7 @@ pub struct FeedComment {
 
 impl Account {
     pub fn open(storage: Store, relay_url: &str) -> crate::Result<Option<Self>> {
-        let Some(identity) = storage.load_identity() else {
+        let Some(identity) = storage.load_identity()? else {
             return Ok(None);
         };
         let relay = RelayClient::new(relay_url);
@@ -97,7 +91,7 @@ impl Account {
     }
 
     pub async fn add_friend(
-        &self,
+        &mut self,
         their: &keystone::PublicIdentity,
         nickname: &str,
     ) -> crate::Result<keystone::Friend> {

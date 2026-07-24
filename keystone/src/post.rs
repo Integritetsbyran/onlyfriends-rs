@@ -1,6 +1,4 @@
 use crate::crypto::{self, SealedBox};
-use crate::identity::{Identity, PublicIdentity};
-use crate::identity::{Identity, PublicIdentity};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::media::Media;
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,7 @@
-use keystone::{identity::SigningPublicKey, post::PostId};
+use keystone::{
+    identity::SigningPublicKey,
+    post::{PostContent, PostId},
+};
 
 use crate::types::{stored_post::StoredPost, stored_response::StoredResponse};
 
@@ -41,14 +44,18 @@ pub trait Storage: Send + Sync {
     ) -> StorageResult<Option<keystone::Profile>>;
 
     /// Save a post to storage, returns true if the post was "new" and had not been saved before.
-    fn save_post(&mut self, post: &keystone::Post, body: &str) -> StorageResult<bool>;
+    fn save_post(
+        &mut self,
+        encrypted: &keystone::EncryptedPost,
+        post: &PostContent,
+    ) -> StorageResult<bool>;
 
     /// Load all posts from storage, returns an empty vector if no posts are found.
     fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>>;
 
     /// Save a response to storage, returns true if the response was "new" and had not been saved before.
     fn save_response(&mut self, post_id: &PostId, response: &StoredResponse)
-        -> StorageResult<bool>;
+    -> StorageResult<bool>;
 
     /// Load all responses for a specific post from storage, returns an empty vector if no responses are found.
     fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>>;
