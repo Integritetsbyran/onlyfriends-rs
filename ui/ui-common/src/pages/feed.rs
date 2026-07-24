@@ -1,16 +1,17 @@
 use dioxus::prelude::*;
 
 use crate::{
-    components::{NewPostForm, PostCard},
+    components::{Modal, NewPostForm, PostCard},
     context,
 };
+use std::sync::Arc;
 
 /// Main feed page. Auto-syncs all friends' mailboxes on mount, then displays
 /// posts in reverse-chronological order.
 #[component]
 pub fn FeedPage() -> Element {
     let account = context::use_app_account();
-    let mut posts = use_signal(Vec::<client_core::FeedPost>::new);
+    let mut posts = use_signal(Vec::<Arc<client_core::FeedPost>>::new);
     let mut syncing = use_signal(|| false);
     let mut sync_err = use_signal(String::new);
 
@@ -21,12 +22,15 @@ pub fn FeedPage() -> Element {
             syncing.set(true);
             sync_err.set(String::new());
             spawn(async move {
-                let acc = arc.lock().await;
+                let mut acc = arc.lock().await;
                 if let Err(e) = acc.sync().await {
                     sync_err.set(format!("Sync error: {e}"));
                 }
                 match acc.load_feed() {
-                    Ok(feed) => posts.set(feed),
+                    Ok(feed) => {
+                        let feed = feed.into_iter().map(Arc::new).collect();
+                        posts.set(feed);
+                    }
                     Err(e) => sync_err.set(format!("Load error: {e}")),
                 }
                 syncing.set(false);
@@ -39,8 +43,9 @@ pub fn FeedPage() -> Element {
         let acc_opt = account.read().as_ref().map(|a| a.clone());
         if let Some(arc) = acc_opt {
             spawn(async move {
-                let acc = arc.lock().await;
+                let mut acc = arc.lock().await;
                 if let Ok(feed) = acc.load_feed() {
+                    let feed = feed.into_iter().map(Arc::new).collect();
                     posts.set(feed);
                 }
             });
@@ -48,6 +53,7 @@ pub fn FeedPage() -> Element {
     };
 
     rsx! {
+        Modal {}
         div { class: "page feed-page",
             div { class: "feed-header",
                 h2 { "Feed" }

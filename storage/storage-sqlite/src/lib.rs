@@ -1,9 +1,9 @@
 use std::sync::{Mutex, MutexGuard};
 
 use keystone::{
-    Identity,
     identity::{MasterSeed, SigningPublicKey},
     post::PostId,
+    Identity,
 };
 use storage_common::{
     storage::{Storage, StorageError, StorageResult},
@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS posts (
     author BLOB NOT NULL,
     body TEXT NOT NULL,
     created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS post_media (
+    id INTEGER PRIMARY KEY,
+    post_id BLOB NOT NULL REFERENCES posts(id),
+    mime TEXT NOT NULL,
+    bytes BLOB NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS responses (
@@ -93,6 +100,11 @@ impl SqliteStorage {
         self.conn
             .lock()
             .map_err(|err| SqliteStorageError::MutexError(err.to_string()))
+    }
+
+    fn get_transaction(&mut self) -> Result<rusqlite::Transaction<'_>, SqliteStorageError> {
+        let transaction = self.conn.transaction()?;
+        Ok(transaction)
     }
 
     /*
@@ -226,41 +238,92 @@ impl SqliteStorage {
     }
 
     fn save_post_impl(
-        &self,
-        post: &keystone::Post,
-        body: &str,
+        &mut self,
+        encrypted: &keystone::EncryptedPost,
+        post: &PostContent,
     ) -> Result<bool, SqliteStorageError> {
-        let conn = self.get_conn()?;
-        let rows = conn.execute(
+        let transaction = self.get_transaction()?;
+
+        let rows = transaction.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                &post.id.to_bytes()[..],
-                &post.author.to_bytes()[..],
-                body,
-                post.created_at as i64,
+                &encrypted.id.to_bytes()[..],
+                &encrypted.author.to_bytes()[..],
+                &post.body,
+                encrypted.created_at as i64,
             ),
         )?;
-        Ok(rows > 0)
+        let did_insert = rows > 0;
+
+        if did_insert {
+            for media in &post.media {
+                transaction.execute(
+                    "INSERT INTO post_media (post_id, mime, bytes)
+                     VALUES (?1, ?2, ?3)",
+                    (&encrypted.id.0[..], media.mime.as_ref(), &media.bytes),
+                )?;
+            }
+        }
+
+        transaction.commit()?;
+
+        Ok(did_insert)
     }
 
-    fn load_posts_impl(&self) -> Result<Vec<StoredPost>, SqliteStorageError> {
-        let conn = self.get_conn()?;
-        let mut stmt = conn
-            .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
-        let rows = stmt.query_map([], |r| {
-            let id: [u8; 16] = r.get(0)?;
-            let author: [u8; 32] = r.get(1)?;
+    fn load_posts_impl(&mut self) -> Result<Vec<StoredPost>, SqliteStorageError> {
+        let transaction = self.get_transaction()?;
 
-            Ok(StoredPost {
-                id: id.into(),
-                author: author.into(),
+        let mut select_posts = transaction
+            .prepare("SELECT id, author, body, created_at FROM posts ORDER BY created_at DESC")?;
+
+        let mut select_media =
+            transaction.prepare("SELECT mime, bytes FROM post_media WHERE post_id = ?1")?;
+
+        let rows = select_posts.query_map([], |r| {
+            let post = StoredPost {
+                id: r
+                    .get::<_, Vec<u8>>(0)?
+                    .try_into()
+                    .map(PostId)
+                    .map_err(|_| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            0,
+                            rusqlite::types::Type::Blob,
+                            "bad id length".into(),
+                        )
+                    })?,
+                author: r.get::<_, Vec<u8>>(1)?.try_into().map_err(|_| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1,
+                        rusqlite::types::Type::Blob,
+                        "bad author length".into(),
+                    )
+                })?,
                 body: r.get(2)?,
                 created_at: r.get::<_, i64>(3)? as u64,
-            })
+                media: vec![],
+            };
+
+            Ok(post)
         })?;
-        let rows = rows.collect::<Result<Vec<_>, rusqlite::Error>>()?;
-        Ok(rows)
+        let mut posts: Vec<StoredPost> = rows.collect::<Result<_, _>>()?;
+
+        for post in &mut posts {
+            let media_rows = select_media.query_map([&post.id.0], |r| {
+                let mime: String = r.get(0)?;
+                Ok(Media {
+                    mime: Mime::from_str(&mime).unwrap(),
+                    bytes: r.get(1)?,
+                })
+            })?;
+
+            for media in media_rows {
+                post.media.push(media?);
+            }
+        }
+
+        Ok(posts)
     }
 
     fn save_response_impl(
@@ -352,61 +415,69 @@ impl SqliteStorage {
 }
 
 impl Storage for SqliteStorage {
-    fn save_identity(&self, id: &keystone::Identity) -> StorageResult<()> {
+    fn save_identity(&mut self, id: &keystone::Identity) -> StorageResult<()> {
         self.save_identity_impl(id)?;
         Ok(())
     }
 
-    fn load_identity(&self) -> StorageResult<Option<keystone::Identity>> {
+    fn load_identity(&mut self) -> StorageResult<Option<keystone::Identity>> {
         Ok(self.load_identity_impl()?)
     }
 
-    fn save_friend(&self, f: &keystone::Friend) -> StorageResult<()> {
+    fn save_friend(&mut self, f: &keystone::Friend) -> StorageResult<()> {
         self.save_friend_impl(f)?;
         Ok(())
     }
 
-    fn load_friends(&self) -> StorageResult<Vec<keystone::Friend>> {
+    fn load_friends(&mut self) -> StorageResult<Vec<keystone::Friend>> {
         Ok(self.load_friends_impl()?)
     }
 
     fn load_friend_by_sign_pub(
-        &self,
+        &mut self,
         sign_pub: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Friend>> {
         Ok(self.load_friend_by_sign_pub_impl(sign_pub)?)
     }
 
-    fn save_profile(&self, p: &keystone::Profile) -> StorageResult<()> {
+    fn save_profile(&mut self, p: &keystone::Profile) -> StorageResult<()> {
         self.save_profile_impl(p)?;
         Ok(())
     }
 
     fn load_profile(
-        &self,
+        &mut self,
         owner_sign_pub: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Profile>> {
         Ok(self.load_profile_impl(owner_sign_pub)?)
     }
 
-    fn save_post(&self, post: &keystone::Post, body: &str) -> StorageResult<bool> {
-        Ok(self.save_post_impl(post, body)?)
+    fn save_post(
+        &mut self,
+        encrypted: &keystone::EncryptedPost,
+        post: &PostContent,
+    ) -> StorageResult<bool> {
+        Ok(self.save_post_impl(encrypted, post)?)
     }
 
-    fn load_posts(&self) -> StorageResult<Vec<StoredPost>> {
+    fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {
         Ok(self.load_posts_impl()?)
     }
 
-    fn save_response(&self, post_id: &PostId, response: &StoredResponse) -> StorageResult<bool> {
+    fn save_response(
+        &mut self,
+        post_id: &PostId,
+        response: &StoredResponse,
+    ) -> StorageResult<bool> {
         Ok(self.save_response_impl(post_id, response)?)
     }
 
-    fn load_responses_for(&self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
+    fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
         Ok(self.load_responses_for_impl(post_id)?)
     }
 
     fn get_cursor(
-        &self,
+        &mut self,
         friend_sign_pub: &SigningPublicKey,
         direction: u8,
         epoch: u64,
@@ -415,7 +486,7 @@ impl Storage for SqliteStorage {
     }
 
     fn set_cursor(
-        &self,
+        &mut self,
         friend_sign_pub: &SigningPublicKey,
         direction: u8,
         epoch: u64,

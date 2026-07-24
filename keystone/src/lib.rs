@@ -3,9 +3,11 @@ pub mod envelope;
 pub mod friend;
 pub mod identity;
 pub mod labels;
+pub mod media;
 pub mod post;
 pub mod profile;
 pub mod response;
+pub mod util;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -27,6 +29,6 @@ pub use crypto::SealedBox;
 pub use envelope::Envelope;
 pub use friend::Friend;
 pub use identity::{Identity, PublicIdentity};
-pub use post::{Post, SealedPost};
+pub use post::{EncryptedPost, SealedPost};
 pub use profile::Profile;
 pub use response::ResponseBody;

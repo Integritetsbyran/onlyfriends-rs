@@ -221,6 +221,54 @@ textarea.input {
     margin-bottom: 10px;
 }
 
+/* ---------- Modal ---------- */
+.modal-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4rem;
+  background: #0005;
+  z-index: 99;
+
+  animation-duration: 0.3s;
+  animation-name: modal-bg-appear;
+}
+
+.modal {
+  position: relative;
+  background: #1e1e1e;
+  border: 1px solid #2e2e2e;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 12px;
+
+  animation-duration: 0.5s;
+  animation-name: modal-appear;
+}
+
+@keyframes modal-bg-appear {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes modal-appear {
+  0% {
+    scale: 0.8;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+
 /* ================================================================
    Setup page
    ================================================================ */
@@ -305,6 +353,23 @@ textarea.input {
     color: #ddd;
     white-space: pre-wrap;
     margin-bottom: 10px;
+}
+
+.post-images {
+    display: flex;
+    max-height: 128px;
+    overflow-x: scroll;
+    margin-bottom: 10px;
+}
+
+.post-images > img {
+    max-height: 128px;
+    margin-right: 8px;
+    border-radius: 12px;
+}
+
+.post-image-viewer {
+    border-radius: 24px;
 }
 
 /* Reaction bar */

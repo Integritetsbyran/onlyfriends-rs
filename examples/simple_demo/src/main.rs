@@ -1,5 +1,7 @@
 use std::sync::Arc;
 use storage_sqlite::SqliteStorage;
+use client_core::account::SyncResult;
+use keystone::{media::Media, post::PostContent};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -11,9 +13,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let bob_db = Arc::new(SqliteStorage::open("bob.sqlite")?);
     let carl_db = Arc::new(SqliteStorage::open("carl.sqlite")?);
 
-    let alice = client_core::Account::open(alice_db, "http://127.0.0.1:3000")?;
-    let bob = client_core::Account::open(bob_db, "http://127.0.0.1:3000")?;
-    let carl = client_core::Account::open(carl_db, "http://127.0.0.1:3000")?;
+    let mut alice = client_core::Account::create_new(alice_db, "http://127.0.0.1:3000")?;
+    let mut bob = client_core::Account::create_new(bob_db, "http://127.0.0.1:3000")?;
+    let mut carl = client_core::Account::create_new(carl_db, "http://127.0.0.1:3000")?;
+    
+    let bob_id = bob.identity.public();
+    let carl_id = carl.identity.public();
+
+
     println!("Identities generated.");
 
     alice.add_friend(&bob.identity.public(), "Bob").await?;
@@ -23,24 +30,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Friends exchanged.");
 
     alice.set_profile("Alice", "hi from alice").await?;
-    let post_id = alice.send_post("hello over the wire!").await?;
+    let content = PostContent {
+        body: "hello over the wire!".to_string(),
+        media: vec![Media {
+            mime: "image/webp".parse().unwrap(),
+            bytes: include_bytes!("../../ui/ui-common/assets/icon.webp").to_vec(),
+        }],
+    };
+    let post_id = alice.send_post(&content).await?.expect("alice has friends");
     println!("Alice set profile and posted.");
 
     // --- Bob sees the post and the profile ---
     let bob_result = bob.sync().await?;
-    assert_eq!(
-        bob_result.new_posts,
-        vec!["hello over the wire!".to_string()]
-    );
+    assert_eq!(texts(&bob_result), vec!["hello over the wire!"]);
     assert_eq!(bob_result.updated_profiles[0].display_name, "Alice");
+    assert_eq!(bob_result.new_posts[0], content);
 
     // --- Carl sees the same ---
     let carl_result = carl.sync().await?;
-    assert_eq!(
-        carl_result.new_posts,
-        vec!["hello over the wire!".to_string()]
-    );
+    assert_eq!(texts(&carl_result), vec!["hello over the wire!"]);
     assert_eq!(carl_result.updated_profiles[0].display_name, "Alice");
+    assert_eq!(carl_result.new_posts[0], content);
 
     // --- profile edit propagates ---
     alice.set_profile("Alice B.", "updated bio").await?;
@@ -96,7 +106,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     );
     println!("Re-sync correctly found nothing new.");
 
-    for (name, account) in [("Alice", &alice), ("Bob", &bob), ("Carl", &carl)] {
+    for (name, account) in [
+        ("Alice", &mut alice),
+        ("Bob", &mut bob),
+        ("Carl", &mut carl),
+    ] {
+        println!("Checking {name}s feed");
+
         let feed = account.load_feed()?;
         assert_eq!(
             feed.len(),
@@ -105,16 +121,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         );
 
         let post = &feed[0];
-        assert_eq!(post.id, post_id);
-        assert_eq!(post.body, "hello over the wire!");
+        assert_eq!(post_id, post.id);
+        assert_eq!(content, post.content);
 
         assert_eq!(post.reactions.len(), 1, "{name} should see Bob's reaction");
         assert_eq!(post.reactions[0].emoji, "👍");
-        assert_eq!(post.reactions[0].author, bob.identity.public().sign_pub);
+        assert_eq!(post.reactions[0].author, bob_id.sign_pub);
 
         assert_eq!(post.comments.len(), 1, "{name} should see Carl's comment");
         assert_eq!(post.comments[0].text, "nice post!");
-        assert_eq!(post.comments[0].author, carl.identity.public().sign_pub);
+        assert_eq!(post.comments[0].author, carl_id.sign_pub);
 
         println!(
             "{name}'s feed: 1 post, {} reaction(s), {} comment(s) — matches.",
@@ -125,4 +141,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("All checks passed!");
     Ok(())
+}
+
+fn texts(sync_result: &SyncResult) -> Vec<&str> {
+    sync_result
+        .new_posts
+        .iter()
+        .map(|p| p.body.as_str())
+        .collect()
 }

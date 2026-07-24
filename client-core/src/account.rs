@@ -1,3 +1,8 @@
+use keystone::ResponseBody::{Comment, Reaction};
+use keystone::{
+    ResponseBody::{Comment, Reaction},
+    post::{PostContent, PostId},
+};
 use std::sync::Arc;
 
 use keystone::{
@@ -19,7 +24,7 @@ pub struct Account {
 
 #[derive(Debug)]
 pub struct SyncResult {
-    pub new_posts: Vec<String>,
+    pub new_posts: Vec<PostContent>,
     pub updated_profiles: Vec<keystone::Profile>,
     pub new_responses: Vec<keystone::response::ResponseInner>,
 }
@@ -51,7 +56,7 @@ pub struct FeedPost {
     pub id: PostId,
     pub author: SigningPublicKey,
     pub created_at: u64,
-    pub body: String, // already decrypted
+    pub content: PostContent,
     pub reactions: Vec<FeedReaction>,
     pub comments: Vec<FeedComment>,
 }
@@ -69,7 +74,19 @@ pub struct FeedComment {
 }
 
 impl Account {
-    pub fn open(storage: Store, relay_url: &str) -> crate::Result<Self> {
+    pub fn open(storage: Store, relay_url: &str) -> crate::Result<Option<Self>> {
+        let Some(identity) = storage.load_identity() else {
+            return Ok(None);
+        };
+        let relay = RelayClient::new(relay_url);
+        Ok(Some(Account {
+            storage,
+            identity,
+            relay,
+        }))
+    }
+
+    pub fn create_new(storage: Store, relay_url: &str) -> crate::Result<Self> {
         let identity = load_or_create_identity(&storage)?;
         let relay = RelayClient::new(relay_url);
         Ok(Account {
@@ -78,6 +95,7 @@ impl Account {
             relay,
         })
     }
+
     pub async fn add_friend(
         &self,
         their: &keystone::PublicIdentity,
@@ -89,7 +107,20 @@ impl Account {
         Ok(friend)
     }
 
-    pub async fn send_post(&self, body: &str) -> crate::Result<PostId> {
+    /// Send `post` to all friends.
+    ///
+    /// Returns the post id, or `None` if you have no friends.
+    pub async fn send_text_post(
+        &mut self,
+        body: impl Into<String>,
+    ) -> crate::Result<Option<PostId>> {
+        self.send_post(&PostContent::from_body(body)).await
+    }
+
+    /// Send `post` to all friends.
+    ///
+    /// Returns the post id, or `None` if you have no friends.
+    pub async fn send_post(&mut self, post: &PostContent) -> crate::Result<Option<PostId>> {
         let friends = self.storage.load_friends()?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
@@ -99,11 +130,11 @@ impl Account {
         // user has any friends yet.
         let mut recipients_with_self = recipients.clone();
         recipients_with_self.push(self.identity.public());
-        let posts = keystone::post::create_post(&self.identity, body, &recipients_with_self);
+        let posts = keystone::post::seal_post(&self.identity, post, &recipients_with_self);
 
-        let post_id = posts.first().map(|p| p.post.id).unwrap_or_default();
+        let post_id = posts.first().map(|p| p.post.id);
         if let Some(first) = posts.first() {
-            self.storage.save_post(&first.post, body)?;
+            self.storage.save_post(&first.post, post)?;
         }
 
         // Send only to actual friends; the trailing self-sealed post is unused.
@@ -122,7 +153,10 @@ impl Account {
         Ok(post_id)
     }
 
-    pub async fn process_mailbox(&self, friend: &keystone::Friend) -> crate::Result<SyncResult> {
+    pub async fn process_mailbox(
+        &mut self,
+        friend: &keystone::Friend,
+    ) -> crate::Result<SyncResult> {
         let direction = my_direction(&friend.public, &self.identity.public());
         let current = epoch_now(60 * 60 * 24);
         let start = current.saturating_sub(7);
@@ -143,13 +177,13 @@ impl Account {
 
                 match envelope {
                     keystone::Envelope::Post(sealed_post) => {
-                        let Ok(text) =
+                        let Ok(post) =
                             keystone::post::open_post(&self.identity, &friend.public, &sealed_post)
                         else {
                             continue;
                         };
-                        if self.storage.save_post(&sealed_post.post, &text)? {
-                            sync_results.new_posts.push(text);
+                        if self.storage.save_post(&sealed_post.post, &post)? {
+                            sync_results.new_posts.push(post);
                         }
                     }
                     keystone::Envelope::Profile(sealed) => {
@@ -323,19 +357,26 @@ impl Account {
             .await
     }
 
-    pub fn load_feed(&self) -> crate::Result<Vec<FeedPost>> {
+    pub fn load_feed(&mut self) -> crate::Result<Vec<FeedPost>> {
         let posts = self.storage.load_posts()?;
         let mut feed = Vec::new();
         for p in posts {
             let responses = self.storage.load_responses_for(&p.id)?;
+
             let (reactions, comments): (Vec<_>, Vec<_>) = responses
                 .into_iter()
                 .partition(|r| r.kind == ResponseKind::Reaction);
+
+            let content = PostContent {
+                body: p.body,
+                media: p.media,
+            };
+
             feed.push(FeedPost {
                 id: p.id,
                 author: p.author,
                 created_at: p.created_at,
-                body: p.body,
+                content,
                 reactions: reactions
                     .into_iter()
                     .map(|r| FeedReaction {
@@ -355,7 +396,7 @@ impl Account {
         Ok(feed)
     }
 
-    pub async fn sync(&self) -> crate::Result<SyncResult> {
+    pub async fn sync(&mut self) -> crate::Result<SyncResult> {
         let friends = self.storage.load_friends()?;
         let mut all_sync_results = SyncResult::new();
 

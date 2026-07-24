@@ -1,5 +1,6 @@
 use crate::context;
 use dioxus::prelude::*;
+use keystone::post::PostId;
 use keystone::{identity::SigningPublicKey, post::PostId};
 
 /// Expandable comment thread under a post.

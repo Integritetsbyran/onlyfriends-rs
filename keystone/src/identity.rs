@@ -57,7 +57,7 @@ impl SigningPublicKey {
     }
 
     pub fn to_short_hex(&self) -> String {
-        self.0.iter().take(6).fold(String::new(), |mut s, b| {
+        self.0.iter().take(8).fold(String::new(), |mut s, b| {
             use std::fmt::Write as _;
             let _ = write!(s, "{b:02x}");
             s

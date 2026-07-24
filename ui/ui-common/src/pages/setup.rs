@@ -13,13 +13,52 @@ pub fn SetupPage(
     on_complete: EventHandler<()>,
     get_storage: Callback<(), client_core::account::Store>,
 ) -> Element {
+pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
+    // TODO: relay must be persisted somewhere. Database?
     let mut relay_url = use_signal(|| "http://localhost:3000".to_string());
     let mut display_name = use_signal(String::new);
     let mut bio = use_signal(String::new);
     let mut error_msg = use_signal(String::new);
-    let mut submitting = use_signal(|| false);
+
+    /// State of the SetupPage
+    #[derive(Clone, Copy)]
+    enum State {
+        Initial,
+        /// Trying to load an existing account
+        LoadingAccount,
+        /// Failed to load an existing account.
+        /// User must register a new account.
+        AwaitingRegistration,
+        /// Trying to create a new account
+        Submitting,
+    }
+
+    let mut state = use_signal(|| State::Initial);
 
     let mut account = context::use_app_account();
+
+    if let State::Initial = state() {
+        state.set(State::LoadingAccount);
+        spawn(async move {
+            // TODO: relay must be persisted somewhere. Database?
+            let relay_url = "http://localhost:3000".to_string();
+            match client_core::Account::open(&config::db_path(), &relay_url) {
+                Ok(Some(acc)) => {
+                    account.set(Some(Arc::new(Mutex::new(acc))));
+                    on_complete.call(());
+                }
+                _ => {
+                    state.set(State::AwaitingRegistration);
+                }
+            }
+        });
+    }
+
+    if let State::LoadingAccount = state() {
+        return rsx! {
+            div { class: "loading", "Loading…" }
+        };
+    }
 
     let submit = move |_| {
         let relay = relay_url.read().trim().to_string();
@@ -36,10 +75,10 @@ pub fn SetupPage(
         }
 
         error_msg.set(String::new());
-        submitting.set(true);
+        state.set(State::Submitting);
 
         spawn(async move {
-            match client_core::Account::open(get_storage.call(()), &relay) {
+            match client_core::Account::create_new(get_storage.call(()), &relay) {
                 Ok(acc) => {
                     // Best-effort: set the profile; ignore errors here — user can update later.
                     let _ = acc.set_profile(&name, &bio_text).await;
@@ -48,11 +87,13 @@ pub fn SetupPage(
                 }
                 Err(e) => {
                     error_msg.set(format!("Failed to open account: {e}"));
-                    submitting.set(false);
+                    state.set(State::AwaitingRegistration);
                 }
             }
         });
     };
+
+    let submitable = matches!(state(), State::AwaitingRegistration);
 
     rsx! {
         div { class: "setup-page",
@@ -101,13 +142,9 @@ pub fn SetupPage(
 
                 button {
                     class: "btn btn-primary",
-                    disabled: *submitting.read(),
+                    disabled: !submitable,
                     onclick: submit,
-                    if *submitting.read() {
-                        "Setting up…"
-                    } else {
-                        "Get started"
-                    }
+                    if submitable { "Get started" } else { "Setting up..." }
                 }
             }
         }

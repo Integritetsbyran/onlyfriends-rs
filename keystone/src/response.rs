@@ -2,6 +2,7 @@ use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
 use crate::{Identity, SealedBox, identity::SigningPublicKey, post::PostId};
+use crate::{Identity, SealedBox, post::PostId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ResponseBody {
