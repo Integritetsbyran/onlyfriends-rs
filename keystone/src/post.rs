@@ -1,8 +1,6 @@
-use crate::Error;
 use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity};
 use crate::media::Media;
-use crate::untyped::{UntypedValue, UntypedValueRef};
 use serde::{Deserialize, Serialize};
 
 /// The content of a post
@@ -70,11 +68,6 @@ pub fn seal_post(
     use ed25519_dalek::Signer;
 
     let post = postcard::to_allocvec(post).expect("serialization always succeeds");
-    let post = UntypedValue {
-        version: "1",
-        value: post,
-    };
-    let post = postcard::to_allocvec(&post).expect("serialization always succeeds");
 
     let content_key: [u8; 32] = crypto::random_bytes();
     let (body_nonce, body_ct) = crypto::aead_encrypt(&content_key, &post);
@@ -129,12 +122,6 @@ pub fn open_post(
         .try_into()
         .map_err(|_| crate::Error::BadKey)?;
     let post = crypto::aead_decrypt(&key, &env.post.content_nonce, &env.post.content_ct)?;
-    let UntypedValueRef { version, value } =
-        postcard::from_bytes(&post).map_err(|_| Error::Serialize)?;
 
-    let "1" = version else {
-        return Err(Error::Serialize);
-    };
-
-    postcard::from_bytes(value).map_err(|_| crate::Error::Serialize)
+    postcard::from_bytes(&post).map_err(|_| crate::Error::Serialize)
 }
