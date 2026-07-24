@@ -9,7 +9,7 @@ pub enum RelayClientError {
     Base64DecodeError(#[from] base64::DecodeError),
 }
 
-pub type RelayClientResult<T> = std::result::Result<T, RelayClientError>;
+pub type RelayClientResult<T> = Result<T, RelayClientError>;
 
 pub struct RelayClient {
     base_url: String,

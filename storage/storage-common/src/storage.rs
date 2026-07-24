@@ -10,7 +10,7 @@ pub enum StorageError {
     InvalidResponseKind(u8),
 }
 
-pub type StorageResult<T> = std::result::Result<T, StorageError>;
+pub type StorageResult<T> = Result<T, StorageError>;
 
 pub trait Storage: Send + Sync {
     /**
