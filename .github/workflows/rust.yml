@@ -63,4 +63,4 @@ jobs:
           key: ${{ hashFiles('flake.lock') }}
 
       - name: Run tests
-        run: nix develop --command cargo test --all-features --exclude desktop --exclude mobile --exclude web
+        run: nix develop --command cargo test --workspace --all-features --exclude desktop --exclude mobile --exclude web
