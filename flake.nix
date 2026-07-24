@@ -79,6 +79,10 @@
 
           # Dioxus CLI
           dioxus-cli
+
+          # Fast linker
+          mold
+          clang
         ];
 
         # Libraries to find at runtime
