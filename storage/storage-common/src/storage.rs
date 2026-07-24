@@ -31,7 +31,7 @@ pub trait Storage: Send + Sync {
     /// Load a specific friend by their public signing key, returns None if no friend is found.
     fn load_friend_by_sign_pub(
         &mut self,
-        sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Friend>>;
 
     /// Save a profile to storage.
@@ -40,7 +40,7 @@ pub trait Storage: Send + Sync {
     /// Load a profile from storage by the owner's public signing key, returns None if no profile is found.
     fn load_profile(
         &mut self,
-        owner_sign_pub: &SigningPublicKey,
+        owner: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Profile>>;
 
     /// Save a post to storage, returns true if the post was "new" and had not been saved before.
@@ -63,7 +63,7 @@ pub trait Storage: Send + Sync {
     /// Get the last index of a post for a specific friend, direction and epoch. Returns the last index.
     fn get_cursor(
         &mut self,
-        friend_sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
         direction: u8,
         epoch: u64,
     ) -> StorageResult<usize>;
@@ -71,7 +71,7 @@ pub trait Storage: Send + Sync {
     /// Set the last index of a post for a specific friend, direction and epoch.
     fn set_cursor(
         &mut self,
-        friend_sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
         direction: u8,
         epoch: u64,
         last_index: usize,

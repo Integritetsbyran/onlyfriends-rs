@@ -213,12 +213,12 @@ impl SqliteStorage {
 
     fn load_profile_impl(
         &self,
-        owner_sign_pub: &SigningPublicKey,
+        owner: &SigningPublicKey,
     ) -> Result<Option<keystone::Profile>, SqliteStorageError> {
         let conn = self.get_conn()?;
         let result = conn.query_row(
             "SELECT owner, display_name, bio, version, sig FROM profiles WHERE owner = ?1",
-            [owner_sign_pub.to_byte_slice()],
+            [owner.to_byte_slice()],
             |r| {
                 Ok(keystone::Profile {
                     owner: SigningPublicKey::from_bytes(r.get(0)?),
@@ -366,7 +366,7 @@ impl SqliteStorage {
 
     fn get_cursor_impl(
         &self,
-        friend_sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
         direction: u8,
         epoch: u64,
     ) -> Result<usize, SqliteStorageError> {
@@ -374,7 +374,7 @@ impl SqliteStorage {
         let result = conn.query_row(
             "SELECT last_index FROM mailbox_cursors
              WHERE friend_sign_pub = ?1 AND direction = ?2 AND epoch = ?3",
-            (friend_sign_pub.to_byte_slice(), direction, epoch as i64),
+            (friend.to_byte_slice(), direction, epoch as i64),
             |row| row.get::<_, i64>(0),
         );
 
@@ -387,7 +387,7 @@ impl SqliteStorage {
 
     fn set_cursor_impl(
         &self,
-        friend_sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
         direction: u8,
         epoch: u64,
         index: usize,
@@ -397,7 +397,7 @@ impl SqliteStorage {
             "INSERT OR REPLACE INTO mailbox_cursors (friend_sign_pub, direction, epoch, last_index)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                friend_sign_pub.to_byte_slice(),
+                friend.to_byte_slice(),
                 direction,
                 epoch as i64,
                 index as i64,
@@ -428,9 +428,9 @@ impl Storage for SqliteStorage {
 
     fn load_friend_by_sign_pub(
         &mut self,
-        sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Friend>> {
-        Ok(self.load_friend_by_sign_pub_impl(sign_pub)?)
+        Ok(self.load_friend_by_sign_pub_impl(friend)?)
     }
 
     fn save_profile(&mut self, p: &keystone::Profile) -> StorageResult<()> {
@@ -440,9 +440,9 @@ impl Storage for SqliteStorage {
 
     fn load_profile(
         &mut self,
-        owner_sign_pub: &SigningPublicKey,
+        owner: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Profile>> {
-        Ok(self.load_profile_impl(owner_sign_pub)?)
+        Ok(self.load_profile_impl(owner)?)
     }
 
     fn save_post(
@@ -471,20 +471,20 @@ impl Storage for SqliteStorage {
 
     fn get_cursor(
         &mut self,
-        friend_sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
         direction: u8,
         epoch: u64,
     ) -> StorageResult<usize> {
-        Ok(self.get_cursor_impl(friend_sign_pub, direction, epoch)?)
+        Ok(self.get_cursor_impl(friend, direction, epoch)?)
     }
 
     fn set_cursor(
         &mut self,
-        friend_sign_pub: &SigningPublicKey,
+        friend: &SigningPublicKey,
         direction: u8,
         epoch: u64,
         index: usize,
     ) -> StorageResult<()> {
-        Ok(self.set_cursor_impl(friend_sign_pub, direction, epoch, index)?)
+        Ok(self.set_cursor_impl(friend, direction, epoch, index)?)
     }
 }

@@ -96,15 +96,15 @@ mod tests {
     use super::*;
 
     // Helper: seal a signed ResponseInner to a recipient, the way Account::react would.
-    fn seal_response(inner: &ResponseInner, recipient_dh_pub: &DhPublicKey) -> SealedBox {
+    fn seal_response(inner: &ResponseInner, recipient: &DhPublicKey) -> SealedBox {
         let bytes = postcard::to_allocvec(inner).expect("serializes");
-        SealedBox::seal(recipient_dh_pub, &bytes)
+        SealedBox::seal(recipient, &bytes)
     }
 
     // Helper: seal a rebroadcast to a recipient, the way the owner's rebroadcast loop would.
-    fn seal_rebroadcast(rb: &ResponseRebroadcast, recipient_dh_pub: &DhPublicKey) -> SealedBox {
+    fn seal_rebroadcast(rb: &ResponseRebroadcast, recipient: &DhPublicKey) -> SealedBox {
         let bytes = postcard::to_allocvec(rb).expect("serializes");
-        SealedBox::seal(recipient_dh_pub, &bytes)
+        SealedBox::seal(recipient, &bytes)
     }
 
     #[test]
