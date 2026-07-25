@@ -5,7 +5,7 @@ fn alice_posts_bob_reads() {
     let alice = Identity::generate();
     let bob = Identity::generate();
 
-    let alice_id = PublicIdentity::from_bytes(&alice.public().to_bytes()).unwrap(); // like from qr
+    let alice_id = PublicIdentity::try_from(&alice.public().to_bytes()[..]).unwrap(); // like from qr
     let bob_id = bob.public();
 
     let a = friend::add_friend(&alice, &bob_id, "Bob");

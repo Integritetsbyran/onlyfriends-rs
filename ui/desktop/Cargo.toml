@@ -8,6 +8,7 @@ dioxus-native = { git = "https://github.com/DioxusLabs/blitz", features = ["prel
 dioxus-router = "0.7"
 dioxus = { version = "0.7", default-features = false }  # satisfies macro internals
 
+storage-sqlite = { workspace = true }
 client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 ui = { workspace = true }

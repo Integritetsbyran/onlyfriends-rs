@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Identity;
+use crate::{Identity, identity::SigningPublicKey};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Profile {
-    pub owner: [u8; 32],
+    pub owner: SigningPublicKey,
     pub display_name: String,
     pub bio: String,
     pub version: u64,
@@ -36,7 +36,8 @@ pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64
 }
 
 pub fn verify_profile(p: &Profile) -> crate::Result<()> {
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&p.owner).map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::from_bytes(&p.owner.to_bytes())
+        .map_err(|_| crate::Error::BadKey)?;
 
     let sig_bytes: [u8; 64] = p
         .sig

@@ -1,7 +1,26 @@
 use crate::crypto::{self, SealedBox};
-use crate::identity::{Identity, PublicIdentity};
+use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::media::Media;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PostId([u8; 16]);
+
+impl PostId {
+    pub fn random() -> Self {
+        Self(crypto::random_bytes())
+    }
+
+    pub fn to_byte_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<[u8; 16]> for PostId {
+    fn from(bytes: [u8; 16]) -> Self {
+        Self(bytes)
+    }
+}
 
 /// The content of a post
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -13,13 +32,10 @@ pub struct PostContent {
     pub media: Vec<Media>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct PostId(pub [u8; 16]);
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncryptedPost {
     pub id: PostId,
-    pub author: [u8; 32],
+    pub author: SigningPublicKey,
     pub created_at: u64,
     pub content_ct: Vec<u8>,
     pub content_nonce: [u8; 24],
@@ -30,12 +46,6 @@ pub struct EncryptedPost {
 pub struct SealedPost {
     pub post: EncryptedPost,
     pub sealed_content_key: SealedBox,
-}
-
-impl PostId {
-    pub fn random() -> Self {
-        Self(crypto::random_bytes())
-    }
 }
 
 impl PostContent {
@@ -75,6 +85,7 @@ pub fn seal_post(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
+
     let mut post = EncryptedPost {
         id: PostId::random(),
         author: author.public().sign_pub,
@@ -105,8 +116,7 @@ pub fn open_post(
 ) -> crate::Result<PostContent> {
     let content_key = SealedBox::open(&recipient.dh_secret(), &env.sealed_content_key)?;
 
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&author_pub.sign_pub)
-        .map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
     let sig_bytes: [u8; 64] = env
         .post
         .sig

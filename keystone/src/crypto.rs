@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use x25519_dalek::PublicKey;
 
-use crate::labels;
+use crate::{identity::DhPublicKey, labels};
 
 /// N fresh random bytes from the OS CSPRNG.
 pub fn random_bytes<const N: usize>() -> [u8; N] {
@@ -51,11 +51,11 @@ pub struct SealedBox {
 }
 
 impl SealedBox {
-    pub fn seal(recipient_dh_pub: &[u8; 32], secret: &[u8]) -> SealedBox {
+    pub fn seal(recipient: &DhPublicKey, secret: &[u8]) -> SealedBox {
         let eph = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
         let e_pub = x25519_dalek::PublicKey::from(&eph);
-        let shared = eph.diffie_hellman(&x25519_dalek::PublicKey::from(*recipient_dh_pub));
-        let info = [labels::SEAL, &e_pub.to_bytes(), recipient_dh_pub].concat();
+        let shared = eph.diffie_hellman(&recipient.into());
+        let info = [labels::SEAL, &e_pub.to_bytes(), &recipient.to_bytes()].concat();
         let wrap_key = derive32(&shared.to_bytes(), &info);
         let (nonce, ct) = aead_encrypt(&wrap_key, secret);
         SealedBox {
@@ -96,9 +96,9 @@ mod tests {
 
     #[test]
     fn seal_open_round_trip() {
-        use x25519_dalek::{PublicKey, StaticSecret};
+        use x25519_dalek::StaticSecret;
         let sk = StaticSecret::from(random_bytes::<32>());
-        let pk = PublicKey::from(&sk).to_bytes();
+        let pk = DhPublicKey::from(&sk);
         let secret = b"a content key goes here, 32 byte";
         let sealed = SealedBox::seal(&pk, secret);
         assert_eq!(SealedBox::open(&sk, &sealed).unwrap(), secret);

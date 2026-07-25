@@ -1,7 +1,7 @@
 use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
-use crate::{Identity, SealedBox, post::PostId};
+use crate::{Identity, SealedBox, identity::SigningPublicKey, post::PostId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ResponseBody {
@@ -12,7 +12,7 @@ pub enum ResponseBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseInner {
     pub post_id: PostId,
-    pub author: [u8; 32], // responder's sign_pub
+    pub author: SigningPublicKey, // responder's public signing key
     pub body: ResponseBody,
     pub sig: Vec<u8>, // responder's signature
 }
@@ -47,8 +47,7 @@ pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody
 pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<ResponseRebroadcast> {
     let opened = SealedBox::open(&owner.dh_secret(), sealed)?;
     let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&response_inner.author)
-        .map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(&response_inner.author)?;
 
     let sig_bytes: [u8; 64] = response_inner
         .sig
@@ -70,14 +69,13 @@ pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<Res
 
 pub fn open_rebroadcast(
     recipient: &Identity,
-    owner_sign_pub: &[u8; 32],
+    owner: &SigningPublicKey,
     sealed: &SealedBox,
 ) -> crate::Result<ResponseRebroadcast> {
     let opened = SealedBox::open(&recipient.dh_secret(), sealed)?;
     let rb = postcard::from_bytes::<ResponseRebroadcast>(&opened)?;
 
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(owner_sign_pub)
-        .map_err(|_| crate::Error::BadKey)?;
+    let vk = ed25519_dalek::VerifyingKey::try_from(owner)?;
     let sig_bytes: [u8; 64] = rb
         .vouch_sig
         .as_slice()
@@ -92,18 +90,20 @@ pub fn open_rebroadcast(
 
 #[cfg(test)]
 mod tests {
+    use crate::identity::DhPublicKey;
+
     use super::*;
 
     // Helper: seal a signed ResponseInner to a recipient, the way Account::react would.
-    fn seal_response(inner: &ResponseInner, recipient_dh_pub: &[u8; 32]) -> SealedBox {
+    fn seal_response(inner: &ResponseInner, recipient: &DhPublicKey) -> SealedBox {
         let bytes = postcard::to_allocvec(inner).expect("serializes");
-        SealedBox::seal(recipient_dh_pub, &bytes)
+        SealedBox::seal(recipient, &bytes)
     }
 
     // Helper: seal a rebroadcast to a recipient, the way the owner's rebroadcast loop would.
-    fn seal_rebroadcast(rb: &ResponseRebroadcast, recipient_dh_pub: &[u8; 32]) -> SealedBox {
+    fn seal_rebroadcast(rb: &ResponseRebroadcast, recipient: &DhPublicKey) -> SealedBox {
         let bytes = postcard::to_allocvec(rb).expect("serializes");
-        SealedBox::seal(recipient_dh_pub, &bytes)
+        SealedBox::seal(recipient, &bytes)
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         let carl = Identity::generate();
         let bob = Identity::generate();
 
-        let post_id = PostId([1u8; 16]);
+        let post_id = PostId::from([1u8; 16]);
 
         // 1. Carl builds + signs a reaction, seals it to Alice (the post owner).
         let inner = create_response(
@@ -155,7 +155,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId([1u8; 16]),
+            PostId::from([1u8; 16]),
             ResponseBody::Reaction { emoji: "x".into() },
         );
         let sealed_to_alice = seal_response(&inner, &alice.public().dh_pub);
@@ -172,7 +172,7 @@ mod tests {
 
         let mut inner = create_response(
             &carl,
-            PostId([1u8; 16]),
+            PostId::from([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -197,7 +197,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId([1u8; 16]),
+            PostId::from([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -221,7 +221,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId([2u8; 16]),
+            PostId::from([2u8; 16]),
             ResponseBody::Comment {
                 text: "cool comment".to_string(),
             },

@@ -3,13 +3,16 @@ use std::sync::Arc;
 use dioxus::prelude::*;
 use tokio::sync::Mutex;
 
-use crate::{config, context};
+use crate::context;
 
 /// First-run onboarding screen. Collects a relay URL, display name, and bio,
 /// opens (or creates) the local database, persists the account in context,
 /// and calls `on_complete` so the caller can navigate away.
 #[component]
-pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
+pub fn SetupPage(
+    on_complete: EventHandler<()>,
+    get_storage: Callback<(), client_core::account::Store>,
+) -> Element {
     // TODO: relay must be persisted somewhere. Database?
     let mut relay_url = use_signal(|| "http://localhost:3000".to_string());
     let mut display_name = use_signal(String::new);
@@ -38,7 +41,7 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
         spawn(async move {
             // TODO: relay must be persisted somewhere. Database?
             let relay_url = "http://localhost:3000".to_string();
-            match client_core::Account::open(&config::db_path(), &relay_url) {
+            match client_core::Account::open(get_storage(()), &relay_url) {
                 Ok(Some(acc)) => {
                     account.set(Some(Arc::new(Mutex::new(acc))));
                     on_complete.call(());
@@ -74,7 +77,7 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
         state.set(State::Submitting);
 
         spawn(async move {
-            match client_core::Account::create_new(&config::db_path(), &relay) {
+            match client_core::Account::create_new(get_storage.call(()), &relay) {
                 Ok(acc) => {
                     // Best-effort: set the profile; ignore errors here — user can update later.
                     let _ = acc.set_profile(&name, &bio_text).await;
@@ -95,9 +98,7 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
         div { class: "setup-page",
             div { class: "setup-card",
                 h1 { class: "setup-title", "OnlyFriends" }
-                p { class: "setup-subtitle",
-                    "Private, encrypted social with your friends."
-                }
+                p { class: "setup-subtitle", "Private, encrypted social with your friends." }
 
                 div { class: "form-group",
                     label { "Relay server URL" }
@@ -122,7 +123,10 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
                 }
 
                 div { class: "form-group",
-                    label { "Bio " span { class: "optional", "(optional)" } }
+                    label {
+                        "Bio "
+                        span { class: "optional", "(optional)" }
+                    }
                     textarea {
                         class: "input",
                         placeholder: "A short bio…",
@@ -139,7 +143,11 @@ pub fn SetupPage(on_complete: EventHandler<()>) -> Element {
                     class: "btn btn-primary",
                     disabled: !submitable,
                     onclick: submit,
-                    if submitable { "Get started" } else { "Setting up..." }
+                    if submitable {
+                        "Get started"
+                    } else {
+                        "Setting up..."
+                    }
                 }
             }
         }

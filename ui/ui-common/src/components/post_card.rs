@@ -26,14 +26,6 @@ fn format_age(ts: u64) -> String {
     }
 }
 
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut s, b| {
-        use std::fmt::Write as _;
-        let _ = write!(s, "{b:02x}");
-        s
-    })
-}
-
 /// Convert a [`Media`] into an web-compatible data-blob.
 ///
 /// Expensive and ridiculous, but this seems to be the only way to load image bytes into dioxus.
@@ -49,8 +41,8 @@ fn media_to_data_uri(media: &Media) -> Arc<str> {
 #[component]
 pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
     let account = context::use_app_account();
+    let mut author_name = use_signal(|| post.author.to_short_hex());
     let mut modal = context::use_modal();
-    let mut author_name = use_signal(|| bytes_to_hex(&post.author[..8]));
     let mut show_comments = use_signal(|| false);
     let has_media = !post.content.media.is_empty();
     let mut media = use_signal::<Option<Arc<[_]>>>(|| None);
@@ -62,13 +54,19 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
         let Some(arc) = acc_opt else { return };
         spawn(async move {
             let acc = arc.lock().await;
-            if let Ok(Some(profile)) = acc.storage.load_profile(&author_key) {
+            if let Ok(Some(profile)) = acc
+                .store()
+                .and_then(|mut s| s.load_profile(&author_key).map_err(Into::into))
+            {
                 author_name.set(profile.display_name.clone());
             } else {
                 // Check if it's our own post.
                 let own = acc.identity.public().sign_pub;
                 if own == author_key {
-                    if let Ok(Some(p)) = acc.storage.load_profile(&own) {
+                    if let Ok(Some(p)) = acc
+                        .store()
+                        .and_then(|mut s| s.load_profile(&own).map_err(Into::into))
+                    {
                         author_name.set(format!("{} (you)", p.display_name));
                     } else {
                         author_name.set("You".to_string());
@@ -100,22 +98,23 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
 
             if let Some(media) = media() {
                 div { class: "post-images",
-                    {media.iter().map(|media| {
-                        let media = Arc::clone(media);
-                        rsx! {
-                            img {
-                                src: "{media}",
-                                onclick: move |_| {
-                                    modal.set(Some(ModalContent(rsx! {
-                                        img {
-                                            class: "post-image-viewer",
-                                            src: "{media}",
-                                        }
-                                    })));
+                    {
+                        media
+                            .iter()
+                            .map(|media| {
+                                let media = Arc::clone(media);
+                                rsx! {
+                                    img {
+                                        src: "{media}",
+                                        onclick: move |_| {
+                                            modal.set(Some(ModalContent(rsx! {
+                                                img { class: "post-image-viewer", src: "{media}" }
+                                            })));
+                                        },
+                                    }
                                 }
-                            }
-                        }
-                    })}
+                            })
+                    }
                 }
             }
 

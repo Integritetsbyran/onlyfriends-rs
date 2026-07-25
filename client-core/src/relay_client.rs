@@ -1,6 +1,16 @@
 use base64::Engine;
 use serde::Deserialize;
 
+#[derive(thiserror::Error, Debug)]
+pub enum RelayClientError {
+    #[error("HTTP error: {0}")]
+    HttpError(#[from] reqwest::Error),
+    #[error("Base64 decode error: {0}")]
+    Base64DecodeError(#[from] base64::DecodeError),
+}
+
+pub type RelayClientResult<T> = Result<T, RelayClientError>;
+
 pub struct RelayClient {
     base_url: String,
     http: reqwest::Client,
@@ -14,7 +24,7 @@ impl RelayClient {
         }
     }
 
-    pub async fn post_item(&self, addr: &str, item: &[u8]) -> reqwest::Result<()> {
+    pub async fn post_item(&self, addr: &str, item: &[u8]) -> RelayClientResult<()> {
         let item_b64 = base64::engine::general_purpose::STANDARD.encode(item);
         self.http
             .post(format!("{}/mailbox/{addr}", self.base_url))
@@ -26,11 +36,7 @@ impl RelayClient {
         Ok(())
     }
 
-    pub async fn get_items(
-        &self,
-        addr: &str,
-        after: usize,
-    ) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_items(&self, addr: &str, after: usize) -> RelayClientResult<Vec<Vec<u8>>> {
         #[derive(Deserialize)]
         struct Resp {
             items_b64: Vec<String>,

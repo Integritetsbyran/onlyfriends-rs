@@ -6,14 +6,10 @@ edition = "2024"
 [dependencies]
 base64.workspace = true
 hex.workspace = true
-keystone = { path = "../keystone" }
 postcard = { workspace = true, features = ["alloc"] }
+keystone = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
-rusqlite = { workspace = true, features = ["bundled"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-mime.workspace = true
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["full"] }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+storage-common = { workspace = true }
+thiserror = { workspace = true }

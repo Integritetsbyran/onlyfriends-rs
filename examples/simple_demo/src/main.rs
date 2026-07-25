@@ -1,16 +1,25 @@
 use client_core::account::SyncResult;
 use keystone::{media::Media, post::PostContent};
+use std::sync::{Arc, Mutex};
+use storage_sqlite::SqliteStorage;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for f in ["alice.sqlite", "bob.sqlite", "carl.sqlite"] {
         let _ = std::fs::remove_file(f);
     }
-    let mut alice = client_core::Account::create_new("alice.sqlite", "http://127.0.0.1:3000")?;
-    let mut bob = client_core::Account::create_new("bob.sqlite", "http://127.0.0.1:3000")?;
-    let mut carl = client_core::Account::create_new("carl.sqlite", "http://127.0.0.1:3000")?;
+
+    let alice_db = Arc::new(Mutex::new(SqliteStorage::open("alice.sqlite")?));
+    let bob_db = Arc::new(Mutex::new(SqliteStorage::open("bob.sqlite")?));
+    let carl_db = Arc::new(Mutex::new(SqliteStorage::open("carl.sqlite")?));
+
+    let mut alice = client_core::Account::create_new(alice_db, "http://127.0.0.1:3000")?;
+    let mut bob = client_core::Account::create_new(bob_db, "http://127.0.0.1:3000")?;
+    let mut carl = client_core::Account::create_new(carl_db, "http://127.0.0.1:3000")?;
+
     let bob_id = bob.identity.public();
     let carl_id = carl.identity.public();
+
     println!("Identities generated.");
 
     alice.add_friend(&bob.identity.public(), "Bob").await?;
@@ -24,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         body: "hello over the wire!".to_string(),
         media: vec![Media {
             mime: "image/webp".parse().unwrap(),
-            bytes: include_bytes!("../../ui/ui-common/assets/icon.webp").to_vec(),
+            bytes: include_bytes!("../../../ui/ui-common/assets/icon.webp").to_vec(),
         }],
     };
     let post_id = alice.send_post(&content).await?.expect("alice has friends");

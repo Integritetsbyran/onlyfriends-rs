@@ -1,21 +1,13 @@
-use dioxus::prelude::*;
-use keystone::post::PostId;
-
 use crate::context;
-
-fn bytes_to_hex(bytes: &[u8]) -> String {
-    bytes.iter().fold(String::new(), |mut s, b| {
-        use std::fmt::Write as _;
-        let _ = write!(s, "{b:02x}");
-        s
-    })
-}
+use dioxus::prelude::*;
+use keystone::identity::SigningPublicKey;
+use keystone::post::PostId;
 
 /// Expandable comment thread under a post.
 #[component]
 pub fn CommentList(
     post_id: PostId,
-    post_author: [u8; 32],
+    post_author: SigningPublicKey,
     comments: Vec<client_core::FeedComment>,
 ) -> Element {
     let account = context::use_app_account();
@@ -47,9 +39,7 @@ pub fn CommentList(
         div { class: "comment-list",
             for comment in comments.iter() {
                 div { class: "comment",
-                    span { class: "comment-author",
-                        "{bytes_to_hex(&comment.author[..6])}…"
-                    }
+                    span { class: "comment-author", "{comment.author.to_short_hex()}…" }
                     span { class: "comment-text", "{comment.text}" }
                 }
             }
@@ -72,7 +62,11 @@ pub fn CommentList(
                     class: "btn btn-secondary",
                     disabled: *sending.read(),
                     onclick: move |_| do_send(),
-                    if *sending.read() { "…" } else { "Send" }
+                    if *sending.read() {
+                        "…"
+                    } else {
+                        "Send"
+                    }
                 }
             }
 

@@ -1,8 +1,13 @@
+use client_core::account::Store;
 use dioxus_native::prelude::*;
 use dioxus_router::hooks::use_navigator;
 use dioxus_router::{Link, Outlet, Routable, Router};
+use std::sync::{Arc, Mutex};
 
+use storage_sqlite::SqliteStorage;
 use ui::{context, pages};
+
+mod config;
 
 const APP_CSS: Asset = ui::APP_CSS;
 
@@ -87,24 +92,35 @@ fn Guard() -> Element {
 #[component]
 fn Setup() -> Element {
     let nav = use_navigator();
+    let storage: Store = Arc::new(Mutex::new(SqliteStorage::open(&config::db_path()).unwrap()));
+    let callback = use_callback(move |_| storage.clone());
     rsx! {
         pages::SetupPage {
-            on_complete: move |_| { nav.push(Route::Feed {}); }
+            on_complete: move |_| {
+                nav.push(Route::Feed {});
+            },
+            get_storage: callback,
         }
     }
 }
 
 #[component]
 fn Feed() -> Element {
-    rsx! { pages::FeedPage {} }
+    rsx! {
+        pages::FeedPage {}
+    }
 }
 
 #[component]
 fn Friends() -> Element {
-    rsx! { pages::FriendsPage {} }
+    rsx! {
+        pages::FriendsPage {}
+    }
 }
 
 #[component]
 fn Profile() -> Element {
-    rsx! { pages::ProfilePage {} }
+    rsx! {
+        pages::ProfilePage {}
+    }
 }

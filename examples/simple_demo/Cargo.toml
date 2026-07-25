@@ -1,0 +1,12 @@
+[package]
+name = "example-simple-demo"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+client-core = { workspace = true }
+storage-sqlite = { workspace = true }
+keystone = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
