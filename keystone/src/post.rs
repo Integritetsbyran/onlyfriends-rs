@@ -7,16 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct PostId([u8; 16]);
 
 impl PostId {
-    pub fn from_bytes(bytes: [u8; 16]) -> Self {
-        Self(bytes)
-    }
-
     pub fn random() -> Self {
         Self(crypto::random_bytes())
-    }
-
-    pub fn to_bytes(&self) -> [u8; 16] {
-        self.0
     }
 
     pub fn to_byte_slice(&self) -> &[u8] {
@@ -68,8 +60,8 @@ impl PostContent {
 impl EncryptedPost {
     pub fn signing_bytes(&self) -> Vec<u8> {
         postcard::to_allocvec(&(
-            self.id.to_bytes(),
-            self.author.to_bytes(),
+            self.id,
+            self.author,
             self.created_at,
             &self.content_ct,
             self.content_nonce,

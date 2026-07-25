@@ -112,9 +112,10 @@ impl SqliteStorage {
         match self
             .conn
             .query_row("SELECT master_seed FROM identity WHERE id = 0", [], |r| {
-                r.get(0)
+                let bytes: [u8; 32] = r.get(0)?;
+                Ok(MasterSeed::from(bytes))
             }) {
-            Ok(seed) => Ok(Some(Identity::from_seed(MasterSeed::from_bytes(seed)))),
+            Ok(seed) => Ok(Some(Identity::from_seed(seed))),
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
@@ -205,8 +206,9 @@ impl SqliteStorage {
             "SELECT owner, display_name, bio, version, sig FROM profiles WHERE owner = ?1",
             [owner.to_byte_slice()],
             |r| {
+                let bytes: [u8; 32] = r.get(0)?;
                 Ok(keystone::Profile {
-                    owner: SigningPublicKey::from_bytes(r.get(0)?),
+                    owner: SigningPublicKey::from(bytes),
                     display_name: r.get(1)?,
                     bio: r.get(2)?,
                     version: r.get(3)?,
@@ -233,8 +235,8 @@ impl SqliteStorage {
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                &encrypted.id.to_bytes()[..],
-                &encrypted.author.to_bytes()[..],
+                encrypted.id.to_byte_slice(),
+                encrypted.author.to_byte_slice(),
                 &post.body,
                 encrypted.created_at as i64,
             ),

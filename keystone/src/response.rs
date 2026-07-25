@@ -19,8 +19,7 @@ pub struct ResponseInner {
 
 impl ResponseInner {
     pub fn signing_bytes(&self) -> Vec<u8> {
-        postcard::to_allocvec(&(self.post_id.to_bytes(), self.author.to_bytes(), &self.body))
-            .expect("serializes")
+        postcard::to_allocvec(&(self.post_id, self.author, &self.body)).expect("serializes")
     }
 }
 
@@ -114,7 +113,7 @@ mod tests {
         let carl = Identity::generate();
         let bob = Identity::generate();
 
-        let post_id = PostId::from_bytes([1u8; 16]);
+        let post_id = PostId::from([1u8; 16]);
 
         // 1. Carl builds + signs a reaction, seals it to Alice (the post owner).
         let inner = create_response(
@@ -156,7 +155,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId::from_bytes([1u8; 16]),
+            PostId::from([1u8; 16]),
             ResponseBody::Reaction { emoji: "x".into() },
         );
         let sealed_to_alice = seal_response(&inner, &alice.public().dh_pub);
@@ -173,7 +172,7 @@ mod tests {
 
         let mut inner = create_response(
             &carl,
-            PostId::from_bytes([1u8; 16]),
+            PostId::from([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -198,7 +197,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId::from_bytes([1u8; 16]),
+            PostId::from([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -222,7 +221,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId::from_bytes([2u8; 16]),
+            PostId::from([2u8; 16]),
             ResponseBody::Comment {
                 text: "cool comment".to_string(),
             },

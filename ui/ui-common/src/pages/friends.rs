@@ -72,7 +72,7 @@ pub fn FriendsPage() -> Element {
             return;
         };
 
-        let Ok(their_pub) = client_core::PublicIdentity::from_bytes(&key_bytes) else {
+        let Ok(their_pub) = client_core::PublicIdentity::try_from(&key_bytes[..]) else {
             add_err.set("Invalid key: wrong length or format.".to_string());
             return;
         };

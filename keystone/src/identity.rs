@@ -5,16 +5,18 @@ use serde::{Deserialize, Serialize};
 pub struct MasterSeed([u8; 32]);
 
 impl MasterSeed {
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(bytes)
-    }
-
     pub fn random() -> Self {
         Self(crypto::random_bytes())
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0
+    }
+}
+
+impl From<[u8; 32]> for MasterSeed {
+    fn from(bytes: [u8; 32]) -> Self {
+        Self(bytes)
     }
 }
 
@@ -31,19 +33,11 @@ impl TryFrom<&SigningPublicKey> for ed25519_dalek::VerifyingKey {
     type Error = crate::Error;
 
     fn try_from(value: &SigningPublicKey) -> Result<Self, Self::Error> {
-        ed25519_dalek::VerifyingKey::from_bytes(&value.to_bytes()).map_err(|_| crate::Error::BadKey)
+        ed25519_dalek::VerifyingKey::from_bytes(&value.0).map_err(|_| crate::Error::BadKey)
     }
 }
 
 impl SigningPublicKey {
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0
-    }
-
-    pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        Self(bytes)
-    }
-
     pub fn to_byte_slice(&self) -> &[u8] {
         &self.0
     }
@@ -62,6 +56,10 @@ impl SigningPublicKey {
             let _ = write!(s, "{b:02x}");
             s
         })
+    }
+
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0
     }
 }
 
@@ -135,9 +133,13 @@ impl PublicIdentity {
     pub fn to_bytes(&self) -> Vec<u8> {
         postcard::to_allocvec(self).expect("serializes")
     }
+}
 
-    pub fn from_bytes(bytes: &[u8]) -> crate::Result<PublicIdentity> {
-        postcard::from_bytes(bytes).map_err(|_| crate::Error::Serialize)
+impl TryFrom<&[u8]> for PublicIdentity {
+    type Error = crate::Error;
+
+    fn try_from(value: &[u8]) -> crate::Result<Self> {
+        postcard::from_bytes(value).map_err(|_| crate::Error::Serialize)
     }
 }
 
@@ -157,6 +159,6 @@ mod tests {
     #[test]
     fn id_survives_qr_round_trip() {
         let id = Identity::generate().public();
-        assert_eq!(PublicIdentity::from_bytes(&id.to_bytes()).unwrap(), id)
+        assert_eq!(PublicIdentity::try_from(&id.to_bytes()[..]).unwrap(), id)
     }
 }

@@ -13,13 +13,8 @@ pub struct Profile {
 
 impl Profile {
     pub fn signing_bytes(&self) -> Vec<u8> {
-        postcard::to_allocvec(&(
-            self.owner.to_bytes(),
-            &self.display_name,
-            &self.bio,
-            &self.version,
-        ))
-        .expect("serializes")
+        postcard::to_allocvec(&(self.owner, &self.display_name, &self.bio, &self.version))
+            .expect("serializes")
     }
 }
 
