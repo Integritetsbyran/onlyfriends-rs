@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 axum = { workspace = true, features = ["tracing"] }
-base64 = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
+postcard = { workspace = true, features = ["alloc"] }
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }

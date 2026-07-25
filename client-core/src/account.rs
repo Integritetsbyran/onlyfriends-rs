@@ -144,7 +144,6 @@ impl Account {
         // Send only to actual friends; the trailing self-sealed post is unused.
         for (friend, post) in friends.iter().zip(posts.iter()) {
             let envelope: keystone::Envelope = keystone::Envelope::Post(post.clone());
-            let bytes = postcard::to_allocvec(&envelope)?;
             let epoch = epoch_now(60 * 60 * 24);
             let addr = mailbox_address(
                 &friend.pairwise_root,
@@ -152,7 +151,7 @@ impl Account {
                 epoch,
             );
 
-            self.relay.post_item(&addr, &bytes).await?;
+            self.relay.post_item(&addr, &envelope).await?;
         }
         Ok(post_id)
     }
@@ -290,13 +289,12 @@ impl Account {
         friend: &keystone::Friend,
         envelope: keystone::Envelope,
     ) -> crate::Result<()> {
-        let bytes = postcard::to_allocvec(&envelope)?;
         let addr = mailbox_address(
             &friend.pairwise_root,
             my_direction(&self.identity.public(), &friend.public),
             epoch_now(60 * 60 * 24),
         );
-        self.relay.post_item(&addr, &bytes).await?;
+        self.relay.post_item(&addr, &envelope).await?;
         Ok(())
     }
 
