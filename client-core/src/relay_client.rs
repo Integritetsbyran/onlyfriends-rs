@@ -1,4 +1,5 @@
 use reqwest::header::CONTENT_TYPE;
+use serde::Serialize;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayClientError {
@@ -25,7 +26,10 @@ impl RelayClient {
         }
     }
 
-    pub async fn post_item(&self, addr: &str, item: Vec<u8>) -> RelayClientResult<()> {
+    /// Serialize `item` as postcard and post it to the mailbox at `addr`.
+    pub async fn post_item(&self, addr: &str, item: &impl Serialize) -> RelayClientResult<()> {
+        let item = postcard::to_allocvec(item).expect("serialize");
+
         self.http
             .post(format!("{}/mailbox/{addr}", self.base_url))
             .header(CONTENT_TYPE, POSTCARD_CONTENT_TYPE)
