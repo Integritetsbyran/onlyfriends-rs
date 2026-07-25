@@ -100,7 +100,7 @@ impl SqliteStorage {
      * Inner implementations of the DB methods.
      */
 
-    fn save_identity_impl(&mut self, id: &keystone::Identity) -> Result<(), SqliteStorageError> {
+    fn save_identity_inner(&mut self, id: &keystone::Identity) -> Result<(), SqliteStorageError> {
         self.conn.execute(
             "INSERT OR REPLACE INTO identity (id, master_seed) VALUES (0, ?1)",
             [id.master_seed.to_bytes()],
@@ -108,7 +108,7 @@ impl SqliteStorage {
         Ok(())
     }
 
-    fn load_identity_impl(&mut self) -> Result<Option<keystone::Identity>, SqliteStorageError> {
+    fn load_identity_inner(&mut self) -> Result<Option<keystone::Identity>, SqliteStorageError> {
         match self
             .conn
             .query_row("SELECT master_seed FROM identity WHERE id = 0", [], |r| {
@@ -121,14 +121,14 @@ impl SqliteStorage {
         }
     }
 
-    fn save_friend_impl(&mut self, f: &keystone::Friend) -> Result<(), SqliteStorageError> {
+    fn save_friend_inner(&mut self, f: &keystone::Friend) -> Result<(), SqliteStorageError> {
         self.conn.execute(
             "INSERT INTO friends (sign_pub, dh_pub, nickname, pairwise_root) VALUES (?1, ?2, ?3, ?4)", 
             (&f.public.sign_pub.to_bytes(), &f.public.dh_pub.to_bytes(), &f.nickname, &f.pairwise_root))?;
         Ok(())
     }
 
-    fn load_friends_impl(&mut self) -> Result<Vec<keystone::Friend>, SqliteStorageError> {
+    fn load_friends_inner(&mut self) -> Result<Vec<keystone::Friend>, SqliteStorageError> {
         let mut stmt = self
             .conn
             .prepare("SELECT sign_pub, dh_pub, nickname, pairwise_root FROM friends")?;
@@ -152,7 +152,7 @@ impl SqliteStorage {
         Ok(friends?)
     }
 
-    fn load_friend_by_sign_pub_impl(
+    fn load_friend_by_sign_pub_inner(
         &mut self,
         sign_pub: &SigningPublicKey,
     ) -> Result<Option<keystone::Friend>, SqliteStorageError> {
@@ -183,7 +183,7 @@ impl SqliteStorage {
         }
     }
 
-    fn save_profile_impl(&mut self, p: &keystone::Profile) -> Result<(), SqliteStorageError> {
+    fn save_profile_inner(&mut self, p: &keystone::Profile) -> Result<(), SqliteStorageError> {
         self.conn.execute(
             "INSERT OR REPLACE INTO profiles (owner, display_name, bio, version, sig)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -198,7 +198,7 @@ impl SqliteStorage {
         Ok(())
     }
 
-    fn load_profile_impl(
+    fn load_profile_inner(
         &mut self,
         owner: &SigningPublicKey,
     ) -> Result<Option<keystone::Profile>, SqliteStorageError> {
@@ -224,7 +224,7 @@ impl SqliteStorage {
         }
     }
 
-    fn save_post_impl(
+    fn save_post_inner(
         &mut self,
         encrypted: &keystone::EncryptedPost,
         post: &PostContent,
@@ -262,7 +262,7 @@ impl SqliteStorage {
         Ok(did_insert)
     }
 
-    fn load_posts_impl(&mut self) -> Result<Vec<StoredPost>, SqliteStorageError> {
+    fn load_posts_inner(&mut self) -> Result<Vec<StoredPost>, SqliteStorageError> {
         let transaction = self.conn.transaction()?;
 
         let mut select_posts = transaction
@@ -304,7 +304,7 @@ impl SqliteStorage {
         Ok(posts)
     }
 
-    fn save_response_impl(
+    fn save_response_inner(
         &mut self,
         post_id: &PostId,
         response: &StoredResponse,
@@ -322,7 +322,7 @@ impl SqliteStorage {
         Ok(rows > 0)
     }
 
-    fn load_responses_for_impl(
+    fn load_responses_for_inner(
         &mut self,
         post_id: &PostId,
     ) -> Result<Vec<StoredResponse>, SqliteStorageError> {
@@ -348,7 +348,7 @@ impl SqliteStorage {
         Ok(rows)
     }
 
-    fn get_cursor_impl(
+    fn get_cursor_inner(
         &mut self,
         friend: &SigningPublicKey,
         direction: u8,
@@ -368,7 +368,7 @@ impl SqliteStorage {
         }
     }
 
-    fn set_cursor_impl(
+    fn set_cursor_inner(
         &mut self,
         friend: &SigningPublicKey,
         direction: u8,
@@ -391,32 +391,32 @@ impl SqliteStorage {
 
 impl Storage for SqliteStorage {
     fn save_identity(&mut self, id: &keystone::Identity) -> StorageResult<()> {
-        self.save_identity_impl(id)?;
+        self.save_identity_inner(id)?;
         Ok(())
     }
 
     fn load_identity(&mut self) -> StorageResult<Option<keystone::Identity>> {
-        Ok(self.load_identity_impl()?)
+        Ok(self.load_identity_inner()?)
     }
 
     fn save_friend(&mut self, f: &keystone::Friend) -> StorageResult<()> {
-        self.save_friend_impl(f)?;
+        self.save_friend_inner(f)?;
         Ok(())
     }
 
     fn load_friends(&mut self) -> StorageResult<Vec<keystone::Friend>> {
-        Ok(self.load_friends_impl()?)
+        Ok(self.load_friends_inner()?)
     }
 
     fn load_friend_by_sign_pub(
         &mut self,
         friend: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Friend>> {
-        Ok(self.load_friend_by_sign_pub_impl(friend)?)
+        Ok(self.load_friend_by_sign_pub_inner(friend)?)
     }
 
     fn save_profile(&mut self, p: &keystone::Profile) -> StorageResult<()> {
-        self.save_profile_impl(p)?;
+        self.save_profile_inner(p)?;
         Ok(())
     }
 
@@ -424,7 +424,7 @@ impl Storage for SqliteStorage {
         &mut self,
         owner: &SigningPublicKey,
     ) -> StorageResult<Option<keystone::Profile>> {
-        Ok(self.load_profile_impl(owner)?)
+        Ok(self.load_profile_inner(owner)?)
     }
 
     fn save_post(
@@ -432,11 +432,11 @@ impl Storage for SqliteStorage {
         encrypted: &keystone::EncryptedPost,
         post: &PostContent,
     ) -> StorageResult<bool> {
-        Ok(self.save_post_impl(encrypted, post)?)
+        Ok(self.save_post_inner(encrypted, post)?)
     }
 
     fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {
-        Ok(self.load_posts_impl()?)
+        Ok(self.load_posts_inner()?)
     }
 
     fn save_response(
@@ -444,11 +444,11 @@ impl Storage for SqliteStorage {
         post_id: &PostId,
         response: &StoredResponse,
     ) -> StorageResult<bool> {
-        Ok(self.save_response_impl(post_id, response)?)
+        Ok(self.save_response_inner(post_id, response)?)
     }
 
     fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
-        Ok(self.load_responses_for_impl(post_id)?)
+        Ok(self.load_responses_for_inner(post_id)?)
     }
 
     fn get_cursor(
@@ -457,7 +457,7 @@ impl Storage for SqliteStorage {
         direction: u8,
         epoch: u64,
     ) -> StorageResult<usize> {
-        Ok(self.get_cursor_impl(friend, direction, epoch)?)
+        Ok(self.get_cursor_inner(friend, direction, epoch)?)
     }
 
     fn set_cursor(
@@ -467,6 +467,6 @@ impl Storage for SqliteStorage {
         epoch: u64,
         index: usize,
     ) -> StorageResult<()> {
-        Ok(self.set_cursor_impl(friend, direction, epoch, index)?)
+        Ok(self.set_cursor_inner(friend, direction, epoch, index)?)
     }
 }
