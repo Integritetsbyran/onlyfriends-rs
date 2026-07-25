@@ -8,7 +8,7 @@ use storage_common::{storage::Storage, types::stored_response::ResponseKind};
 
 use crate::{ClientError, RelayClient, epoch_now, mailbox_address, my_direction};
 
-pub type Store = Arc<Mutex<dyn Storage + Send + Sync>>;
+pub type Store = Arc<Mutex<dyn Storage>>;
 
 pub struct Account {
     storage: Store,
@@ -68,9 +68,7 @@ pub struct FeedComment {
 }
 
 impl Account {
-    pub fn store(
-        &self,
-    ) -> crate::Result<std::sync::MutexGuard<'_, dyn Storage + Send + Sync + 'static>> {
+    pub fn store(&self) -> crate::Result<std::sync::MutexGuard<'_, dyn Storage + 'static>> {
         self.storage
             .lock()
             .map_err(|e| ClientError::PoisonError(e.to_string()))

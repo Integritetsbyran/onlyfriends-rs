@@ -15,7 +15,7 @@ pub enum StorageError {
 
 pub type StorageResult<T> = Result<T, StorageError>;
 
-pub trait Storage: Send + Sync {
+pub trait Storage: Send {
     /// Save our own identity to storage, only one identity can ever be stored.
     fn save_identity(&mut self, id: &keystone::Identity) -> StorageResult<()>;
 
