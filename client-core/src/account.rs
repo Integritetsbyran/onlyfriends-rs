@@ -152,7 +152,7 @@ impl Account {
                 epoch,
             );
 
-            self.relay.post_item(&addr, &bytes).await?;
+            self.relay.post_item(&addr, bytes).await?;
         }
         Ok(post_id)
     }
@@ -296,7 +296,7 @@ impl Account {
             my_direction(&self.identity.public(), &friend.public),
             epoch_now(60 * 60 * 24),
         );
-        self.relay.post_item(&addr, &bytes).await?;
+        self.relay.post_item(&addr, bytes).await?;
         Ok(())
     }
 

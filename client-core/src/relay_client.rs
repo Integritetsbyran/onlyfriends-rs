@@ -1,12 +1,11 @@
-use base64::Engine;
-use serde::Deserialize;
+use reqwest::header::CONTENT_TYPE;
 
 #[derive(thiserror::Error, Debug)]
 pub enum RelayClientError {
     #[error("HTTP error: {0}")]
     HttpError(#[from] reqwest::Error),
-    #[error("Base64 decode error: {0}")]
-    Base64DecodeError(#[from] base64::DecodeError),
+    #[error("Postcard (de)serialize error: {0}")]
+    Postcard(#[from] postcard::Error),
 }
 
 pub type RelayClientResult<T> = Result<T, RelayClientError>;
@@ -16,6 +15,8 @@ pub struct RelayClient {
     http: reqwest::Client,
 }
 
+const POSTCARD_CONTENT_TYPE: &str = "application/postcard";
+
 impl RelayClient {
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
@@ -24,11 +25,11 @@ impl RelayClient {
         }
     }
 
-    pub async fn post_item(&self, addr: &str, item: &[u8]) -> RelayClientResult<()> {
-        let item_b64 = base64::engine::general_purpose::STANDARD.encode(item);
+    pub async fn post_item(&self, addr: &str, item: Vec<u8>) -> RelayClientResult<()> {
         self.http
             .post(format!("{}/mailbox/{addr}", self.base_url))
-            .json(&serde_json::json!({"item_b64": item_b64}))
+            .header(CONTENT_TYPE, POSTCARD_CONTENT_TYPE)
+            .body(item)
             .send()
             .await?
             .error_for_status()?;
@@ -37,24 +38,14 @@ impl RelayClient {
     }
 
     pub async fn get_items(&self, addr: &str, after: usize) -> RelayClientResult<Vec<Vec<u8>>> {
-        #[derive(Deserialize)]
-        struct Resp {
-            items_b64: Vec<String>,
-        }
-
         let response = self
             .http
             .get(format!("{}/mailbox/{addr}?after={after}", self.base_url))
             .send()
             .await?
-            .json::<Resp>()
+            .bytes()
             .await?;
 
-        let mut out = Vec::with_capacity(response.items_b64.len());
-        for s in &response.items_b64 {
-            let bytes = base64::engine::general_purpose::STANDARD.decode(s)?;
-            out.push(bytes);
-        }
-        Ok(out)
+        Ok(postcard::from_bytes(&response)?)
     }
 }

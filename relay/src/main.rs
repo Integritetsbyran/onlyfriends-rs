@@ -4,13 +4,18 @@ use std::{
 };
 
 use axum::{
-    Json, Router,
+    Router,
     extract::{Path, Query, State},
+    http::StatusCode,
     routing::post,
 };
 use clap::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing_subscriber::EnvFilter;
+
+use crate::postcard::{Postcard, PostcardRaw};
+
+pub mod postcard;
 
 #[derive(Default)]
 struct Store {
@@ -19,29 +24,14 @@ struct Store {
 
 type SharedStore = Arc<Mutex<Store>>;
 
-#[derive(Deserialize)]
-struct PostItemRequest {
-    item_b64: String,
-}
-
 async fn post_mailbox(
     State(store): State<SharedStore>,
     Path(addr): Path<String>,
-    Json(req): Json<PostItemRequest>,
-) -> Result<(), axum::http::StatusCode> {
-    use base64::Engine;
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(&req.item_b64)
-        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
-
+    PostcardRaw(bytes): PostcardRaw,
+) -> Result<(), StatusCode> {
     let mut store = store.lock().unwrap();
-    store.mailboxes.entry(addr).or_default().push(bytes);
+    store.mailboxes.entry(addr).or_default().push(bytes.into());
     Ok(())
-}
-
-#[derive(Serialize)]
-struct GetItemsResponse {
-    items_b64: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -54,24 +44,11 @@ async fn get_mailbox(
     State(store): State<SharedStore>,
     Path(addr): Path<String>,
     Query(q): Query<AfterQuery>,
-) -> Json<GetItemsResponse> {
-    use base64::Engine;
-
+) -> Postcard<Vec<Vec<u8>>> {
     let store = store.lock().unwrap();
-    let items: &[Vec<u8>] = store
-        .mailboxes
-        .get(&addr)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
-
-    let items_b64 = items
-        .get(q.after..)
-        .unwrap_or(&[])
-        .iter()
-        .map(|item| base64::engine::general_purpose::STANDARD.encode(item))
-        .collect();
-
-    Json(GetItemsResponse { items_b64 })
+    let items = store.mailboxes.get(&addr).map(Vec::as_slice).unwrap_or(&[]);
+    let items = items.get(q.after..).unwrap_or(&[]);
+    Postcard(items.to_vec())
 }
 
 #[derive(Parser)]
