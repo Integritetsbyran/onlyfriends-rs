@@ -7,6 +7,7 @@ pub mod media;
 pub mod post;
 pub mod profile;
 pub mod response;
+pub mod signing;
 pub mod util;
 
 #[derive(Debug, PartialEq, Eq)]

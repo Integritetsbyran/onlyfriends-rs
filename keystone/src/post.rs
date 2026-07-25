@@ -1,6 +1,7 @@
 use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::media::Media;
+use crate::signing::Signature;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,7 +40,7 @@ pub struct EncryptedPost {
     pub created_at: u64,
     pub content_ct: Vec<u8>,
     pub content_nonce: [u8; 24],
-    pub sig: Vec<u8>,
+    pub sig: Signature,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -92,10 +93,10 @@ pub fn seal_post(
         created_at,
         content_ct: body_ct,
         content_nonce: body_nonce,
-        sig: vec![],
+        sig: Signature::invalid(),
     };
     let sig = author.signing_key().sign(&post.signing_bytes());
-    post.sig = sig.to_bytes().to_vec();
+    post.sig = sig.into();
 
     let mut envelopes: Vec<SealedPost> = vec![];
     for r in recipients.iter() {
@@ -117,13 +118,7 @@ pub fn open_post(
     let content_key = SealedBox::open(&recipient.dh_secret(), &env.sealed_content_key)?;
 
     let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
-    let sig_bytes: [u8; 64] = env
-        .post
-        .sig
-        .as_slice()
-        .try_into()
-        .map_err(|_| crate::Error::Signature)?;
-    let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
+    let sig = ed25519_dalek::Signature::from(env.post.sig);
     vk.verify_strict(&env.post.signing_bytes(), &sig)
         .map_err(|_| crate::Error::Signature)?;
 
