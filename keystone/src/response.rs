@@ -1,7 +1,7 @@
 use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
-use crate::{Identity, SealedBox, identity::SigningPublicKey, post::PostId};
+use crate::{Identity, SealedBox, identity::SigningPublicKey, post::PostId, signing::Signature};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ResponseBody {
@@ -12,9 +12,11 @@ pub enum ResponseBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseInner {
     pub post_id: PostId,
-    pub author: SigningPublicKey, // responder's public signing key
+    /// Responder's public signing key
+    pub author: SigningPublicKey,
     pub body: ResponseBody,
-    pub sig: Vec<u8>, // responder's signature
+    /// Responder's signature
+    pub sig: Signature,
 }
 
 impl ResponseInner {
@@ -26,7 +28,8 @@ impl ResponseInner {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseRebroadcast {
     pub inner: ResponseInner,
-    pub vouch_sig: Vec<u8>, // post owner's signature over `inner`
+    /// post owner's signature over `inner`
+    pub vouch_sig: Signature,
 }
 
 pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody) -> ResponseInner {
@@ -34,12 +37,12 @@ pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody
         post_id,
         author: responder.public().sign_pub,
         body,
-        sig: vec![],
+        sig: Signature::invalid(),
     };
     let sig = responder
         .signing_key()
         .sign(&response_inner.signing_bytes());
-    response_inner.sig = sig.to_bytes().to_vec();
+    response_inner.sig = sig.into();
 
     response_inner
 }
@@ -49,21 +52,15 @@ pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<Res
     let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
     let vk = ed25519_dalek::VerifyingKey::try_from(&response_inner.author)?;
 
-    let sig_bytes: [u8; 64] = response_inner
-        .sig
-        .as_slice()
-        .try_into()
-        .map_err(|_| crate::Error::Signature)?;
-    let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
+    let sig = ed25519_dalek::Signature::from(response_inner.sig);
 
     vk.verify_strict(&response_inner.signing_bytes(), &sig)
         .map_err(|_| crate::Error::Signature)?;
 
     let sig = owner.signing_key().sign(&response_inner.signing_bytes());
-    let vouch = sig.to_bytes().to_vec();
     Ok(ResponseRebroadcast {
         inner: response_inner,
-        vouch_sig: vouch,
+        vouch_sig: sig.into(),
     })
 }
 
@@ -76,12 +73,7 @@ pub fn open_rebroadcast(
     let rb = postcard::from_bytes::<ResponseRebroadcast>(&opened)?;
 
     let vk = ed25519_dalek::VerifyingKey::try_from(owner)?;
-    let sig_bytes: [u8; 64] = rb
-        .vouch_sig
-        .as_slice()
-        .try_into()
-        .map_err(|_| crate::Error::Signature)?;
-    let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
+    let sig = ed25519_dalek::Signature::from(rb.vouch_sig);
     vk.verify_strict(&rb.inner.signing_bytes(), &sig)
         .map_err(|_| crate::Error::Signature)?;
 

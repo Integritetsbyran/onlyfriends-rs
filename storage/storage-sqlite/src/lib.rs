@@ -192,7 +192,7 @@ impl SqliteStorage {
                 &p.display_name,
                 &p.bio,
                 p.version,
-                &p.sig,
+                &p.sig.to_bytes(),
             ),
         )?;
         Ok(())
@@ -212,7 +212,7 @@ impl SqliteStorage {
                     display_name: r.get(1)?,
                     bio: r.get(2)?,
                     version: r.get(3)?,
-                    sig: r.get(4)?,
+                    sig: r.get::<_, [u8; 64]>(4)?.into(),
                 })
             },
         );
