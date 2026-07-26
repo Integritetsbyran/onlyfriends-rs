@@ -13,6 +13,9 @@ client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 ui = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+xdg.workspace = true
+
 [features]
 # default = ["desktop"]
 # desktop = ["dioxus/desktop"]

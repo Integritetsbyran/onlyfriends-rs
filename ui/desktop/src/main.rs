@@ -92,7 +92,8 @@ fn Guard() -> Element {
 #[component]
 fn Setup() -> Element {
     let nav = use_navigator();
-    let storage: Store = Arc::new(Mutex::new(SqliteStorage::open(&config::db_path()).unwrap()));
+    let db_path = config::db_path().unwrap();
+    let storage: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
     let callback = use_callback(move |_| storage.clone());
     rsx! {
         pages::SetupPage {

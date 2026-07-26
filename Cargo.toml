@@ -26,6 +26,8 @@ tracing = "0.1.44"
 x25519-dalek = "2"
 tracing-subscriber = "0.3.23"
 thiserror = "2.0.18"
+xdg = "3.0.0"
+
 ui = { path = "ui/ui-common" }
 client-core = { path = "client-core" }
 storage-common = { path = "storage/storage-common" }
