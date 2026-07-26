@@ -1,3 +1,7 @@
 **/target
 *.sqlite
 **/onlyfriends.db
+
+# Flatpak
+/repo
+**/*.flatpak
