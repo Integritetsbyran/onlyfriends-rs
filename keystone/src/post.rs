@@ -1,3 +1,4 @@
+use crate::Signable;
 use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::media::Media;
@@ -58,8 +59,8 @@ impl PostContent {
     }
 }
 
-impl EncryptedPost {
-    pub fn signing_bytes(&self) -> Vec<u8> {
+impl Signable for EncryptedPost {
+    fn signing_bytes(&self) -> Vec<u8> {
         postcard::to_allocvec(&(
             self.id,
             self.author,
