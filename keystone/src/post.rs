@@ -6,24 +6,8 @@ use crate::signing::Signature;
 use onlyfriends_time::seconds_since_epoch;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PostId([u8; 16]);
+use crate::media::Media;
 
-impl PostId {
-    pub fn random() -> Self {
-        Self(crypto::random_bytes())
-    }
-
-    pub fn to_byte_slice(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl From<[u8; 16]> for PostId {
-    fn from(bytes: [u8; 16]) -> Self {
-        Self(bytes)
-    }
-}
 
 /// The content of a post
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -35,21 +19,6 @@ pub struct PostContent {
     pub media: Vec<Media>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EncryptedPost {
-    pub id: PostId,
-    pub author: SigningPublicKey,
-    pub created_at: u64,
-    pub content_ct: Vec<u8>,
-    pub content_nonce: [u8; 24],
-    pub sig: Signature,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SealedPost {
-    pub post: EncryptedPost,
-    pub sealed_content_key: SealedBox,
-}
 
 impl PostContent {
     pub fn from_body(body: impl Into<String>) -> Self {
