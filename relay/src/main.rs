@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     sync::{Arc, Mutex},
 };
 
@@ -53,6 +54,10 @@ async fn get_mailbox(
 
 #[derive(Parser)]
 struct Opt {
+    /// IP and port to bind to.
+    #[clap(long, env = "OF_RELAY_BIND", default_value = "127.0.0.1:3000")]
+    bind: SocketAddr,
+
     #[clap(long, env = "RUST_LOG", default_value = "debug")]
     log_level: String,
 }
@@ -71,9 +76,7 @@ async fn main() {
         .route("/mailbox/{addr}", post(post_mailbox).get(get_mailbox))
         .with_state(store);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
-    tracing::info!("relay listening on http://127.0.0.1:3000");
+    let listener = tokio::net::TcpListener::bind(&opt.bind).await.unwrap();
+    tracing::info!("relay listening on http://{}", opt.bind);
     axum::serve(listener, app).await.unwrap();
 }
