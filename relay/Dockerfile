@@ -33,6 +33,9 @@ RUN strip /out/onlyfriends-relay
 ########################
 FROM scratch
 
+ENV OF_RELAY_BIND="0.0.0.0:3000"
+EXPOSE 3000/tcp
+
 ENV RUST_LOG="info"
 
 WORKDIR /
