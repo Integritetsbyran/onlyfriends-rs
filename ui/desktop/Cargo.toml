@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dioxus-native = { git = "https://github.com/DioxusLabs/blitz", features = ["prelude"] }
-dioxus-router = "0.7"
-dioxus = { version = "0.7", default-features = false }  # satisfies macro internals
+dioxus-native = { version = "0.7.9", features = ["prelude"] }
+dioxus-router = "0.7.9"
+dioxus = { version = "0.7.9", default-features = false }  # satisfies macro internals
 
 storage-sqlite = { workspace = true }
 client-core = { workspace = true }
