@@ -2,7 +2,9 @@ use client_core::account::Store;
 use dioxus_native::prelude::*;
 use dioxus_router::hooks::use_navigator;
 use dioxus_router::{Link, Outlet, Routable, Router};
+use image::GenericImageView;
 use std::sync::{Arc, Mutex};
+use winit::platform::wayland::WindowAttributesExtWayland;
 
 use storage_sqlite::SqliteStorage;
 use ui::{context, pages};
@@ -33,7 +35,20 @@ enum Route {
 }
 
 fn main() {
-    dioxus_native::launch(App);
+    const ICON: &[u8] = include_bytes!("../../ui-common/assets/icon_x128.png");
+    let icon = image::load_from_memory_with_format(ICON, image::ImageFormat::Png).unwrap();
+    let (width, height) = icon.dimensions();
+    let icon = winit::window::Icon::from_rgba(icon.into_rgba8().into_vec(), width, height).unwrap();
+
+    // Configure window attributes
+    let window_attrs = dioxus_native::WindowAttributes::default()
+        .with_title("OnlyFriends")
+        // Set application id. This decides the icon on Linux/Wayland.
+        .with_name("org.integritetsbyran.OnlyFriends", "OnlyFriends")
+        // Set the icon directly on platforms that support it.
+        .with_window_icon(Some(icon));
+
+    dioxus_native::launch_cfg(App, vec![], vec![Box::new(window_attrs)]);
 }
 
 /// Root component — provides the account context for the entire tree.

@@ -5829,9 +5829,11 @@ dependencies = [
  "dioxus",
  "dioxus-native",
  "dioxus-router",
+ "image",
  "storage-sqlite",
  "tokio",
  "ui",
+ "winit",
  "xdg",
 ]
 

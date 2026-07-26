@@ -12,6 +12,8 @@ storage-sqlite = { workspace = true }
 client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 ui = { workspace = true }
+image.workspace = true
+winit.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 xdg.workspace = true
