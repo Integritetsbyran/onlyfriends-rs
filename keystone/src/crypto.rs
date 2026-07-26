@@ -51,13 +51,13 @@ pub struct SealedBox {
 }
 
 impl SealedBox {
-    pub fn seal(recipient: &DhPublicKey, secret: &[u8]) -> SealedBox {
+    pub fn seal(recipient: &DhPublicKey, plaintext: &[u8]) -> SealedBox {
         let eph = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
         let e_pub = x25519_dalek::PublicKey::from(&eph);
         let shared = eph.diffie_hellman(&recipient.into());
         let info = [labels::SEAL, &e_pub.to_bytes(), &recipient.to_bytes()].concat();
         let wrap_key = derive32(&shared.to_bytes(), &info);
-        let (nonce, ct) = aead_encrypt(&wrap_key, secret);
+        let (nonce, ct) = aead_encrypt(&wrap_key, plaintext);
         SealedBox {
             ephemeral_pub: e_pub.to_bytes(),
             nonce,
