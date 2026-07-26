@@ -7,6 +7,7 @@ pub mod media;
 pub mod post;
 pub mod profile;
 pub mod response;
+pub mod signable;
 pub mod signing;
 pub mod util;
 
@@ -33,3 +34,4 @@ pub use identity::{Identity, PublicIdentity};
 pub use post::{EncryptedPost, SealedPost};
 pub use profile::Profile;
 pub use response::ResponseBody;
+pub use signable::Signable;

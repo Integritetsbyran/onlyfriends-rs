@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Identity, identity::SigningPublicKey, signing::Signature};
+use crate::{Identity, Signable, identity::SigningPublicKey, signing::Signature};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Profile {
@@ -11,16 +11,20 @@ pub struct Profile {
     pub sig: Signature,
 }
 
-impl Profile {
-    pub fn signing_bytes(&self) -> Vec<u8> {
-        postcard::to_allocvec(&(self.owner, &self.display_name, &self.bio, &self.version))
-            .expect("serializes")
+impl Signable for Profile {
+    fn signing_bytes(&self) -> Vec<u8> {
+        let Self {
+            owner,
+            display_name,
+            bio,
+            version,
+            sig: _, // don't sign the signature
+        } = self;
+        postcard::to_allocvec(&(owner, display_name, bio, version)).expect("serializes")
     }
 }
 
 pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64) -> Profile {
-    use ed25519_dalek::Signer;
-
     let mut profile = Profile {
         owner: me.public().sign_pub,
         display_name: display_name.to_string(),
@@ -28,10 +32,7 @@ pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64
         version,
         sig: Signature::invalid(),
     };
-
-    let sig = me.signing_key().sign(&profile.signing_bytes());
-    profile.sig = sig.into();
-
+    profile.sig = profile.sign_with(&me.signing_key());
     profile
 }
 

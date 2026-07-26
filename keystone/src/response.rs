@@ -1,7 +1,9 @@
 use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
-use crate::{Identity, SealedBox, identity::SigningPublicKey, post::PostId, signing::Signature};
+use crate::{
+    Identity, SealedBox, Signable, identity::SigningPublicKey, post::PostId, signing::Signature,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ResponseBody {
@@ -19,9 +21,15 @@ pub struct ResponseInner {
     pub sig: Signature,
 }
 
-impl ResponseInner {
-    pub fn signing_bytes(&self) -> Vec<u8> {
-        postcard::to_allocvec(&(self.post_id, self.author, &self.body)).expect("serializes")
+impl Signable for ResponseInner {
+    fn signing_bytes(&self) -> Vec<u8> {
+        let Self {
+            post_id,
+            author,
+            body,
+            sig: _, // don't sign the signature
+        } = self;
+        postcard::to_allocvec(&(post_id, author, body)).expect("serializes")
     }
 }
 
@@ -39,11 +47,7 @@ pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody
         body,
         sig: Signature::invalid(),
     };
-    let sig = responder
-        .signing_key()
-        .sign(&response_inner.signing_bytes());
-    response_inner.sig = sig.into();
-
+    response_inner.sig = response_inner.sign_with(&responder.signing_key());
     response_inner
 }
 
