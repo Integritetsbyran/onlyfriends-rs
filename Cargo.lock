@@ -1749,20 +1749,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "desktop"
-version = "0.1.0"
-dependencies = [
- "client-core",
- "dioxus",
- "dioxus-native",
- "dioxus-router",
- "storage-sqlite",
- "tokio",
- "ui",
- "xdg",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5255,6 +5241,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "onlyfriends-desktop"
+version = "0.1.0"
+dependencies = [
+ "client-core",
+ "dioxus",
+ "dioxus-native",
+ "dioxus-router",
+ "storage-sqlite",
+ "tokio",
+ "ui",
+ "xdg",
+]
+
+[[package]]
 name = "onlyfriends-relay"
 version = "0.1.0"
 dependencies = [
@@ -5265,6 +5265,15 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "onlyfriends-web"
+version = "0.1.0"
+dependencies = [
+ "dioxus",
+ "getrandom 0.2.17",
+ "ui",
 ]
 
 [[package]]
@@ -8861,15 +8870,6 @@ dependencies = [
  "log",
  "once_cell",
  "pkg-config",
-]
-
-[[package]]
-name = "web"
-version = "0.1.0"
-dependencies = [
- "dioxus",
- "getrandom 0.2.17",
- "ui",
 ]
 
 [[package]]
