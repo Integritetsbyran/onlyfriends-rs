@@ -2,7 +2,7 @@ use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Identity, SealedBox, Signable, identity::SigningPublicKey, post::PostId, signing::Signature,
+    Identity, SealedBox, Signable, envelope::PostId, identity::SigningPublicKey, signing::Signature
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

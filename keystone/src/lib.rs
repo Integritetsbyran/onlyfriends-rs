@@ -10,6 +10,7 @@ pub mod response;
 pub mod signable;
 pub mod signing;
 pub mod util;
+pub mod message;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -31,7 +32,7 @@ pub use crypto::SealedBox;
 pub use envelope::Envelope;
 pub use friend::Friend;
 pub use identity::{Identity, PublicIdentity};
-pub use post::{EncryptedPost, SealedPost};
 pub use profile::Profile;
 pub use response::ResponseBody;
 pub use signable::Signable;
+pub use envelope::Letter;
