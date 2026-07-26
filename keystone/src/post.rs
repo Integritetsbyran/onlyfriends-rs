@@ -77,8 +77,6 @@ pub fn seal_post(
     post: &PostContent,
     recipients: &[PublicIdentity],
 ) -> Vec<SealedPost> {
-    use ed25519_dalek::Signer;
-
     let post = postcard::to_allocvec(post).expect("serialization always succeeds");
 
     let content_key: [u8; 32] = crypto::random_bytes();
@@ -96,8 +94,7 @@ pub fn seal_post(
         content_nonce: body_nonce,
         sig: Signature::invalid(),
     };
-    let sig = author.signing_key().sign(&post.signing_bytes());
-    post.sig = sig.into();
+    post.sig = post.sign_with(&author.signing_key());
 
     let mut envelopes: Vec<SealedPost> = vec![];
     for r in recipients.iter() {

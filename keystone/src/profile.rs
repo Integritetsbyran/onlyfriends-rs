@@ -25,8 +25,6 @@ impl Signable for Profile {
 }
 
 pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64) -> Profile {
-    use ed25519_dalek::Signer;
-
     let mut profile = Profile {
         owner: me.public().sign_pub,
         display_name: display_name.to_string(),
@@ -34,10 +32,7 @@ pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64
         version,
         sig: Signature::invalid(),
     };
-
-    let sig = me.signing_key().sign(&profile.signing_bytes());
-    profile.sig = sig.into();
-
+    profile.sig = profile.sign_with(&me.signing_key());
     profile
 }
 

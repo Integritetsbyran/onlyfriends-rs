@@ -1,5 +1,7 @@
-use ed25519_dalek::Sha512;
+use ed25519_dalek::{Sha512, Signer};
 use sha2::{Digest as _, digest::FixedOutput as _};
+
+use crate::signing::Signature;
 
 /// An object that can be cryptographically signed for authenticity.
 pub trait Signable {
@@ -16,6 +18,11 @@ pub trait Signable {
     /// Compute the [`Sha512`] hash of [`Self::signing_bytes`] and return it as bytes.
     fn signing_hash_bytes(&self) -> [u8; 64] {
         *self.signing_hash().finalize_fixed().as_ref()
+    }
+
+    /// Sign [`Self::signing_bytes`] with `key`.
+    fn sign_with(&self, key: &ed25519_dalek::SigningKey) -> Signature {
+        key.sign(&self.signing_bytes()).into()
     }
 }
 

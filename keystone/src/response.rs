@@ -47,11 +47,7 @@ pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody
         body,
         sig: Signature::invalid(),
     };
-    let sig = responder
-        .signing_key()
-        .sign(&response_inner.signing_bytes());
-    response_inner.sig = sig.into();
-
+    response_inner.sig = response_inner.sign_with(&responder.signing_key());
     response_inner
 }
 
