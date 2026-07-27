@@ -142,5 +142,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" \
-            --title "Desktop ${{ needs.verify.outputs.version }}" \
+            --title "${{ github.ref_name }}" \
             bundles/*.flatpak
