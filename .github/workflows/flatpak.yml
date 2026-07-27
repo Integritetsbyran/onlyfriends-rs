@@ -1,30 +1,28 @@
-# Workflow for releasing the relay binary. It is triggered by pushing a signed `relay/vX.Y.Z` tag,
+# Workflow for releasing the desktop app. It is triggered by pushing a signed `desktop/vX.Y.Z` tag,
 # pointing to a signed commit. Trusted public keys are specified in github secrets.
 #
 # The workflow does the following:
 # - Verifies that tags and commits are signed.
 # - Verifies that the version in the tag matches the `version` field in the crates.
-# - Builds a docker image for onlyfriends-relay, and pushes it to ghcr.io
-# - Creates a github release
-
-name: release/onlyfriends-relay
+# - Builds flatpaks for onlyfriends-desktop (x86_64 and aarch64)
+# - Creates a github release with the flatpaks included
+# 
+name: release/onlyfriends-desktop
 
 on:
   push:
     tags:
-      - 'relay/v[0-9]+.[0-9]+.[0-9]+'
+      - 'desktop/v[0-9]+.[0-9]+.[0-9]+'
 
 env:
-  REGISTRY: ghcr.io
-  RELAY_BIN: "onlyfriends-relay"
-  IMAGE_NAME: ${{ github.repository }}
+  DESKTOP_BIN: "onlyfriends-desktop"
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # Required to create releases
-      packages: write # Required to push to GHCR
+
+    outputs:
+      version: ${{ steps.tag_version.outputs.v }}
 
     steps:
       - name: Checkout repository
@@ -35,9 +33,6 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2
 
       - name: Import trusted GPG keys
         env:
@@ -70,7 +65,7 @@ jobs:
       - name: Extract version from git
         id: tag_version
         run: |
-          VERSION=${GITHUB_REF_NAME#relay/v}
+          VERSION=${GITHUB_REF_NAME#desktop/v}
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid version format: $VERSION"
             echo "Expected 'v1.2.3'"
@@ -78,63 +73,74 @@ jobs:
           fi
           echo "v=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Extract relay version from cargo manifest
-        id: relay_version
+      - name: Extract desktop version from cargo manifest
+        id: desktop_version
         run: |
-          # extract `version = xxx` from onlyfriends-relay manifest
+          # extract `version = xxx` from onlyfriends-desktop manifest
           VERSION="$(
             cargo metadata --no-deps --format-version=1 |
-            jq -r '.packages[] | select(.name == "${{ env.RELAY_BIN }}").version'
+            jq -r '.packages[] | select(.name == "${{ env.DESKTOP_BIN }}").version'
           )"
           if [[ "$VERSION" == "null" || -z "$VERSION" ]]; then
-            echo "Could not extract $RELAY_BIN version from Cargo.toml"
+            echo "Could not extract $DESKTOP_BIN version from Cargo.toml"
             exit 1
           fi
           echo "v=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Git tag matches crate version
         run: |
-          if [[ "${{ steps.tag_version.outputs.v }}" != "${{ steps.relay_version.outputs.v }}" ]]; then
-            echo "Git tag doesn't match $RELAY_BIN version: ${{ steps.tag_version.outputs.v }} != ${{ steps.relay_version.outputs.v }}"
+          if [[ "${{ steps.tag_version.outputs.v }}" != "${{ steps.desktop_version.outputs.v }}" ]]; then
+            echo "Git tag doesn't match $DESKTOP_BIN version: ${{ steps.tag_version.outputs.v }} != ${{ steps.desktop_version.outputs.v }}"
             exit 1
           fi
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+  flatpak:
+    name: "Build Flatpak"
+    needs: verify
+    container:
+      # NOTE: keep in sync with flatpak manifest
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      options: --privileged
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.variant.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          bundle: org.integritetsbyran.OnlyFriends.${{ matrix.variant.arch }}.flatpak
+          artifact-name: org.integritetsbyran.OnlyFriends.${{ matrix.variant.arch }}.flatpak
+          manifest-path: ui/desktop/org.integritetsbyran.OnlyFriends.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          arch: ${{ matrix.variant.arch }}
+          verbose: true
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
+  release:
+    needs: [verify, flatpak]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create releases
+    
+    steps:
+      - uses: actions/download-artifact@v8
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern=relay-{{version}}
-            type=semver,pattern=relay-{{major}}.{{minor}}
-            type=semver,pattern=relay-{{major}}
+          path: bundles
+          pattern: org.integritetsbyran.OnlyFriends.*.flatpak
+          merge-multiple: true
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./relay/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: List downloaded bundles
+        run: ls -la bundles
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ github.ref_name }}" \
-            --title "${{ steps.tag_version.outputs.v}}" \
-            --notes "Docker image: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:relay-${{ steps.tag_version.outputs.v }}\`"
-
+            --title "Desktop ${{ needs.verify.outputs.version }}" \
+            bundles/*.flatpak
