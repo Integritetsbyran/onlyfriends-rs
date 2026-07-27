@@ -1,5 +1,6 @@
 id: org.integritetsbyran.OnlyFriends
 runtime: org.freedesktop.Platform
+# NOTE: keep in sync with github workflow
 runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
