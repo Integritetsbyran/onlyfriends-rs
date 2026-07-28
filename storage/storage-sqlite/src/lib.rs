@@ -9,13 +9,18 @@ use keystone::{
 use mime::Mime;
 use storage_common::{
     storage::{Storage, StorageError, StorageResult},
-    types::{stored_post::StoredPost, stored_response::StoredResponse},
+    types::{relay_config::RelayConfig, stored_post::StoredPost, stored_response::StoredResponse},
 };
 
 const SCHEMA_SQL: &str = "
 CREATE TABLE IF NOT EXISTS identity (
     id INTEGER PRIMARY KEY CHECK (id = 0),  -- singleton row
     master_seed BLOB NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS relay_config (
+    id INTEGER PRIMARY KEY CHECK (id = 0),  -- singleton row
+    url TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS friends (
@@ -119,6 +124,27 @@ impl SqliteStorage {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+
+    fn save_relay_config_inner(&self, config: &RelayConfig) -> Result<(), SqliteStorageError> {
+        let RelayConfig { url } = config;
+        self.conn.execute(
+            "INSERT OR REPLACE INTO relay_config (id, url) VALUES (0, ?1)",
+            [url],
+        )?;
+        Ok(())
+    }
+
+    fn load_relay_config_inner(&self) -> Result<Option<RelayConfig>, SqliteStorageError> {
+        self.conn
+            .query_row("SELECT url FROM relay_config WHERE id = 0", [], |r| {
+                let url: String = r.get(0)?;
+                Ok(Some(RelayConfig { url }))
+            })
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                e => Err(e.into()),
+            })
     }
 
     fn save_friend_inner(&mut self, f: &keystone::Friend) -> Result<(), SqliteStorageError> {
@@ -397,6 +423,15 @@ impl Storage for SqliteStorage {
 
     fn load_identity(&mut self) -> StorageResult<Option<keystone::Identity>> {
         Ok(self.load_identity_inner()?)
+    }
+
+    fn save_relay_config(&mut self, config: &RelayConfig) -> StorageResult<()> {
+        self.save_relay_config_inner(config)?;
+        Ok(())
+    }
+
+    fn load_relay_config(&mut self) -> StorageResult<Option<RelayConfig>> {
+        Ok(self.load_relay_config_inner()?)
     }
 
     fn save_friend(&mut self, f: &keystone::Friend) -> StorageResult<()> {

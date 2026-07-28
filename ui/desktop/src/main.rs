@@ -31,6 +31,9 @@ enum Route {
         /// Own profile.
         #[route("/profile")]
         Profile {},
+        /// App preferences.
+        #[route("/prefs")]
+        Prefs {},
 }
 
 fn main() {
@@ -78,6 +81,7 @@ fn AppLayout() -> Element {
                     Link { to: Route::Feed {}, class: "nav-tab", "Feed" }
                     Link { to: Route::Friends {}, class: "nav-tab", "Friends" }
                     Link { to: Route::Profile {}, class: "nav-tab", "Profile" }
+                    Link { to: Route::Prefs {}, class: "nav-tab", "⚙" }
                 }
             }
             Outlet::<Route> {}
@@ -140,5 +144,12 @@ fn Friends() -> Element {
 fn Profile() -> Element {
     rsx! {
         pages::ProfilePage {}
+    }
+}
+
+#[component]
+fn Prefs() -> Element {
+    rsx! {
+        pages::Prefs {}
     }
 }

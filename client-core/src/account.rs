@@ -4,7 +4,10 @@ use keystone::{
     post::{PostContent, PostId},
 };
 use std::sync::{Arc, Mutex};
-use storage_common::{storage::Storage, types::stored_response::ResponseKind};
+use storage_common::{
+    storage::Storage,
+    types::{relay_config::RelayConfig, stored_response::ResponseKind},
+};
 
 use crate::{ClientError, RelayClient, epoch_now, mailbox_address, my_direction};
 
@@ -74,15 +77,17 @@ impl Account {
             .map_err(|e| ClientError::PoisonError(e.to_string()))
     }
 
-    pub fn open(storage: Store, relay_url: &str) -> crate::Result<Option<Self>> {
-        let identity = storage
-            .lock()
-            .map_err(|e| ClientError::PoisonError(e.to_string()))?
-            .load_identity()?;
-        let Some(identity) = identity else {
+    pub fn open(storage: Store) -> crate::Result<Option<Self>> {
+        let mut s = storage.lock().expect("poisoned");
+        let identity = s.load_identity()?;
+        let relay_config = s.load_relay_config()?;
+        drop(s);
+
+        let Some((identity, RelayConfig { url })) = identity.zip(relay_config) else {
             return Ok(None);
         };
-        let relay = RelayClient::new(relay_url);
+
+        let relay = RelayClient::new(url);
         Ok(Some(Account {
             storage,
             identity,
@@ -92,6 +97,12 @@ impl Account {
 
     pub fn create_new(storage: Store, relay_url: &str) -> crate::Result<Self> {
         let identity = load_or_create_identity(&storage)?;
+        storage
+            .lock()
+            .expect("poisoned")
+            .save_relay_config(&RelayConfig {
+                url: relay_url.to_string(),
+            })?;
         let relay = RelayClient::new(relay_url);
         Ok(Account {
             storage,
@@ -100,6 +111,12 @@ impl Account {
         })
     }
 
+    pub fn set_relay_url(&mut self, relay_url: String) -> crate::Result<()> {
+        self.relay = RelayClient::new(&relay_url);
+        self.store()?
+            .save_relay_config(&RelayConfig { url: relay_url })?;
+        Ok(())
+    }
     pub async fn add_friend(
         &mut self,
         their: &keystone::PublicIdentity,
