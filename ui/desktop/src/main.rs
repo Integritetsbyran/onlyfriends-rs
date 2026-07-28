@@ -4,7 +4,6 @@ use dioxus_router::hooks::use_navigator;
 use dioxus_router::{Link, Outlet, Routable, Router};
 use image::GenericImageView;
 use std::sync::{Arc, Mutex};
-use winit::platform::wayland::WindowAttributesExtWayland;
 
 use storage_sqlite::SqliteStorage;
 use ui::{context, pages};
@@ -38,15 +37,18 @@ fn main() {
     const ICON: &[u8] = include_bytes!("../../ui-common/assets/icon_x128.png");
     let icon = image::load_from_memory_with_format(ICON, image::ImageFormat::Png).unwrap();
     let (width, height) = icon.dimensions();
-    let icon = winit::window::Icon::from_rgba(icon.into_rgba8().into_vec(), width, height).unwrap();
+    let icon = winit::icon::RgbaIcon::new(icon.into_rgba8().into_vec(), width, height).unwrap();
+
+    let wayland_attrs = winit_wayland::WindowAttributesWayland::default()
+        // Set application id. This decides the icon on Linux/Wayland.
+        .with_name("org.integritetsbyran.OnlyFriends", "OnlyFriends");
 
     // Configure window attributes
     let window_attrs = dioxus_native::WindowAttributes::default()
         .with_title("OnlyFriends")
-        // Set application id. This decides the icon on Linux/Wayland.
-        .with_name("org.integritetsbyran.OnlyFriends", "OnlyFriends")
+        .with_platform_attributes(Box::new(wayland_attrs))
         // Set the icon directly on platforms that support it.
-        .with_window_icon(Some(icon));
+        .with_window_icon(Some(icon.into()));
 
     dioxus_native::launch_cfg(App, vec![], vec![Box::new(window_attrs)]);
 }
