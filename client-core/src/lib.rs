@@ -22,8 +22,6 @@ pub enum ClientError {
     RelayClientError(#[from] RelayClientError),
     #[error("Trying to interact with someone who isn't my friend: {0}")]
     NotFriendError(&'static str),
-    #[error("Failed to lock store: {0}")]
-    PoisonError(String),
 }
 
 pub type Result<T> = std::result::Result<T, ClientError>;

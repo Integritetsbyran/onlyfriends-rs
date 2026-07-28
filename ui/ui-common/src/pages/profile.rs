@@ -20,7 +20,8 @@ pub fn ProfilePage() -> Element {
             spawn(async move {
                 let acc = arc.lock().await;
                 let sign_pub = acc.identity.public().sign_pub;
-                if let Ok(Ok(Some(profile))) = acc.store().map(|mut s| s.load_profile(&sign_pub)) {
+                let mut store = acc.store();
+                if let Ok(Some(profile)) = store.load_profile(&sign_pub) {
                     display_name.set(profile.display_name.clone());
                     bio.set(profile.bio.clone());
                 }
