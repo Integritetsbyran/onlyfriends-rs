@@ -4,7 +4,10 @@ use std::{
 };
 
 use axum::{
-    Router, extract::{Path, Query, State}, http::StatusCode, routing::{get, post},
+    Router,
+    extract::{Path, Query, State},
+    http::StatusCode,
+    routing::{get, post},
 };
 use clap::Parser;
 use serde::Deserialize;
@@ -12,6 +15,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::postcard::{Postcard, PostcardRaw};
 
+pub mod landing;
 pub mod postcard;
 
 #[derive(Default)]
@@ -66,11 +70,21 @@ async fn main() {
 
     let app = Router::new()
         .route("/mailbox/{addr}", post(post_mailbox).get(get_mailbox))
+        .route("/add/{code}", get(landing::add_friend_landing))
+        .route(
+            "/.well-known/apple-app-site-association",
+            get(landing::apple_app_site_association),
+        )
+        .route(
+            "/.well-known/assetlinks.json",
+            get(landing::asset_links_json),
+        )
         .with_state(store);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
+
     tracing::info!("relay listening on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }

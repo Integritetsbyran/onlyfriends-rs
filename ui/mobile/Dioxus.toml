@@ -1,0 +1,83 @@
+[application]
+
+# Web `build` & `serve` dist path
+out_dir = "dist"
+
+# resource (static) file folder
+asset_dir = "assets"
+
+[web.wasm_opt]
+# The level wasm-opt should target. z is the smallest. 4 is the fastest.
+level = "4"
+
+[web.app]
+
+# HTML title tag content
+title = "OnlyFriends"
+
+[web.watcher]
+
+index_on_404 = true
+
+watch_path = ["src"]
+
+[bundle]
+# Bundle identifier
+#
+# Placeholder — update before shipping, and keep this in sync with:
+# - `well-known/apple-app-site-association` (appID = "<TEAMID>.<identifier>")
+# - `well-known/assetlinks.json` (package_name)
+identifier = "com.onlyfriends.app"
+
+# Bundle publisher
+#
+# Placeholder — replace with the real publisher/org name before shipping.
+publisher = "OnlyFriends"
+
+# Bundle icon
+#
+# TODO: no icon has been designed/added yet — this path doesn't exist.
+# `dx bundle` will fall back to a default icon until one is added at
+# `assets/icon.png` (and this path updated to match).
+icon = ["assets/icon.png"]
+
+# Bundle resources
+resources = ["assets/*"]
+
+# Bundle copyright
+copyright = ""
+
+# Bundle category
+category = "Social Networking"
+
+# Bundle short description
+short_description = "Private, encrypted social with your friends."
+
+# Bundle long description
+long_description = """
+OnlyFriends is a private, encrypted social app for sharing posts, photos, \
+and reactions with the friends you choose to add — no public feed, no \
+algorithm, no strangers.
+"""
+
+# Deep link ("add friend" QR / share link) configuration.
+#
+# `dx bundle` uses this to configure both platforms automatically:
+# - iOS: adds `onlyfriends` to CFBundleURLTypes, and
+#   `applinks:onlyfriends.app` to the associated-domains entitlement
+#   (Universal Links).
+# - Android: adds `onlyfriends` as an intent-filter scheme, and an
+#   auto-verify App Links intent-filter for `onlyfriends.app` (App Links).
+#
+# `onlyfriends.app` is a placeholder domain — update it here (and in
+# `client_core::deep_link::DEEP_LINK_HOST`, plus the two
+# `well-known/*` files) once a real production domain is chosen.
+#
+# Note: intentionally *not* also setting `[android].intent_filters` or
+# `[ios.entitlements].associated-domains` manually — `[deep_links]` already
+# derives both from `hosts`/`schemes`, and setting both risks duplicate
+# intent-filter entries in the generated AndroidManifest.xml.
+[deep_links]
+schemes = ["onlyfriends"]
+hosts = ["onlyfriends.app"]
+paths = ["/add/*"]

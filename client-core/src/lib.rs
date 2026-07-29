@@ -1,4 +1,5 @@
 pub mod account;
+pub mod deep_link;
 pub mod mailbox;
 pub mod relay_client;
 

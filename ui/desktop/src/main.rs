@@ -30,6 +30,10 @@ enum Route {
         /// Own profile.
         #[route("/profile")]
         Profile {},
+        /// Confirm-add screen reached via an "onlyfriends://" / universal
+        /// link deep link (e.g. a scanned QR code).
+        #[route("/add/:code")]
+        AddFriend { code: String },
 }
 
 fn main() {
@@ -94,10 +98,17 @@ fn Setup() -> Element {
     let nav = use_navigator();
     let storage: Store = Arc::new(Mutex::new(SqliteStorage::open(&config::db_path()).unwrap()));
     let callback = use_callback(move |_| storage.clone());
+    // Cold-start only (see `find_add_friend_arg` docs); the OS passes the
+    // launch URL as an argument when opening a registered `onlyfriends://`
+    // link.
+    let pending_deep_link = client_core::deep_link::find_add_friend_arg(std::env::args());
     rsx! {
         pages::SetupPage {
             on_complete: move |_| {
-                nav.push(Route::Feed {});
+                match pending_deep_link.clone() {
+                    Some(code) => nav.push(Route::AddFriend { code }),
+                    None => nav.push(Route::Feed {}),
+                };
             },
             get_storage: callback,
         }
@@ -122,5 +133,19 @@ fn Friends() -> Element {
 fn Profile() -> Element {
     rsx! {
         pages::ProfilePage {}
+    }
+}
+
+/// Confirm-add screen reached via an "add friend" deep link.
+#[component]
+fn AddFriend(code: String) -> Element {
+    let nav = use_navigator();
+    rsx! {
+        pages::AddFriendPage {
+            code,
+            on_added: move |_| {
+                nav.push(Route::Friends {});
+            },
+        }
     }
 }

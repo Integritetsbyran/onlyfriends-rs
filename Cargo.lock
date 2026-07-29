@@ -1756,6 +1756,7 @@ dependencies = [
  "dioxus",
  "dioxus-native",
  "dioxus-router",
+ "dirs",
  "storage-sqlite",
  "tokio",
  "ui",
@@ -4719,7 +4720,12 @@ dependencies = [
 name = "mobile"
 version = "0.1.0"
 dependencies = [
+ "client-core",
  "dioxus",
+ "jni 0.21.1",
+ "ndk-context",
+ "storage-sqlite",
+ "tokio",
  "ui",
 ]
 

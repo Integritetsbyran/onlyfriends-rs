@@ -28,9 +28,13 @@ pub fn QrCode(data: String, size: u32) -> Element {
 }
 
 /// A QR code that opens the app to add a specific friend.
+///
+/// Encodes the universal-link (`https://`) form so that scanning still
+/// leads somewhere useful (a download/landing page) even if the app isn't
+/// installed yet — see `client_core::deep_link`.
 #[component]
 pub fn AddFriendQrCode(user_code: String, #[props(default = 220)] size: u32) -> Element {
-    let link = format!("onlyfriends://{user_code}");
+    let link = client_core::deep_link::build_add_friend_link(&user_code);
 
     rsx! {
         div { class: "add-friend-qr",

@@ -12,6 +12,7 @@ storage-sqlite = { workspace = true }
 client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 ui = { workspace = true }
+dirs = { workspace = true }
 
 [features]
 # default = ["desktop"]

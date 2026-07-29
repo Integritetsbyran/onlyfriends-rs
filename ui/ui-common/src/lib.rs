@@ -2,6 +2,7 @@
 
 pub mod components;
 pub mod context;
+pub mod hex_util;
 pub mod pages;
 
 mod assets;
