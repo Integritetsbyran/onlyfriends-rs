@@ -1,7 +1,7 @@
 use keystone::{
     identity::SigningPublicKey,
     post::{PostContent},
-    envelope::PostId,
+    envelope::LetterId,
 };
 
 use crate::types::{
@@ -65,14 +65,11 @@ pub trait Storage: Send {
     async fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>>;
 
     /// Save a response to storage, returns true if the response was "new" and had not been saved before.
-    async fn save_response(
-        &mut self,
-        post_id: &PostId,
-        response: &StoredResponse,
-    ) -> StorageResult<bool>;
+    async fn save_response(&mut self, letter_id: &LetterId, response: &StoredResponse)
+    -> StorageResult<bool>;
 
-    /// Load all responses for a specific post from storage, returns an empty vector if no responses are found.
-    async fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>>;
+    /// Load all responses for a specific letter from storage, returns an empty vector if no responses are found.
+    async fn load_responses_for(&mut self, letter_id: &LetterId) -> StorageResult<Vec<StoredResponse>>;
 
     /// Get the last index of a post for a specific friend, direction and epoch. Returns the last index.
     async fn get_cursor(

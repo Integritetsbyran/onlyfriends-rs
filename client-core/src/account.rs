@@ -7,7 +7,7 @@ use keystone::Envelope;
 use keystone::identity::SigningPublicKey;
 use keystone::message::Message;
 use keystone::post::PostContent;
-use keystone::envelope::PostId;
+use keystone::envelope::LetterId;
 
 use std::sync::{Arc, Mutex};
 
@@ -52,7 +52,7 @@ impl Default for SyncResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeedPost {
-    pub id: PostId,
+    pub id: LetterId,
     pub author: SigningPublicKey,
     pub created_at: u64,
     pub content: PostContent,
@@ -132,18 +132,18 @@ impl Account {
 
     /// Send `post` to all friends.
     ///
-    /// Returns the post id, or `None` if you have no friends.
+    /// Returns the letter id, or `None` if you have no friends.
     pub async fn send_text_post(
         &mut self,
         body: impl Into<String>,
-    ) -> crate::Result<Option<PostId>> {
+    ) -> crate::Result<Option<LetterId>> {
         self.send_post(&PostContent::from_body(body)).await
     }
 
     /// Send `post` to all friends.
     ///
-    /// Returns the post id, or `None` if you have no friends.
-    pub async fn send_post(&mut self, post: &PostContent) -> crate::Result<Option<PostId>> {
+    /// Returns the letter id, or `None` if you have no friends.
+    pub async fn send_post(&mut self, post: &PostContent) -> crate::Result<Option<LetterId>> {
         let friends = self.store().await.load_friends().await?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
@@ -266,10 +266,10 @@ impl Account {
         &self,
         rb: keystone::response::ResponseRebroadcast,
     ) -> crate::Result<()> {
-        let post_id = rb.inner.post_id;
+        let letter_id = rb.inner.letter_id;
         self.store()
             .await
-            .save_response(&post_id, &rb.inner.into())
+            .save_response(&letter_id, &rb.inner.into())
             .await?;
         Ok(())
     }
@@ -334,7 +334,7 @@ impl Account {
 
     pub async fn react(
         &self,
-        post_id: PostId,
+        letter_id: LetterId,
         post_author: &SigningPublicKey,
         emoji: &str,
     ) -> crate::Result<()> {
@@ -348,7 +348,7 @@ impl Account {
         };
         let inner = keystone::response::create_response(
             &self.identity,
-            post_id,
+            letter_id,
             keystone::ResponseBody::Reaction {
                 emoji: emoji.to_string(),
             },
@@ -365,7 +365,7 @@ impl Account {
 
     pub async fn comment(
         &self,
-        post_id: PostId,
+        letter_id: LetterId,
         post_author: &SigningPublicKey,
         text: &str,
     ) -> crate::Result<()> {
@@ -379,7 +379,7 @@ impl Account {
         };
         let inner = keystone::response::create_response(
             &self.identity,
-            post_id,
+            letter_id,
             keystone::ResponseBody::Comment {
                 text: text.to_string(),
             },

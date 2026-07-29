@@ -1,12 +1,12 @@
 use crate::context;
 use dioxus::prelude::*;
 use keystone::identity::SigningPublicKey;
-use keystone::envelope::PostId;
+use keystone::envelope::LetterId;
 
 /// Expandable comment thread under a post.
 #[component]
 pub fn CommentList(
-    post_id: PostId,
+    letter_id: LetterId,
     post_author: SigningPublicKey,
     comments: Vec<client_core::FeedComment>,
 ) -> Element {
@@ -27,7 +27,7 @@ pub fn CommentList(
         sending.set(true);
         spawn(async move {
             let acc = arc.lock().await;
-            match acc.comment(post_id, &post_author, &text).await {
+            match acc.comment(letter_id, &post_author, &text).await {
                 Ok(()) => new_comment.set(String::new()),
                 Err(e) => err.set(format!("{e}")),
             }
