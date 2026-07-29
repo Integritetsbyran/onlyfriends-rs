@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{path::Path, str::FromStr};
 
 use keystone::{
     Identity,
@@ -90,8 +90,8 @@ pub struct SqliteStorage {
 }
 
 impl SqliteStorage {
-    pub fn open(path: &str) -> Result<Self, SqliteStorageError> {
-        let conn = rusqlite::Connection::open(path)?;
+    pub fn open(path: impl AsRef<Path>) -> Result<Self, SqliteStorageError> {
+        let conn = rusqlite::Connection::open(path.as_ref())?;
         conn.execute_batch(SCHEMA_SQL)?;
         Ok(SqliteStorage { conn })
     }

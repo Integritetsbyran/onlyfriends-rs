@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         body: "hello over the wire!".to_string(),
         media: vec![Media {
             mime: "image/webp".parse().unwrap(),
-            bytes: include_bytes!("../../../ui/ui-common/assets/icon.webp").to_vec(),
+            bytes: include_bytes!("../../../ui/ui-common/assets/frog.webp").to_vec(),
         }],
     };
     let post_id = alice.send_post(&content).await?.expect("alice has friends");

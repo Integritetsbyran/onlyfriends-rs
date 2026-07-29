@@ -1,17 +1,23 @@
 [package]
-name = "desktop"
+name = "onlyfriends-desktop"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dioxus-native = { git = "https://github.com/DioxusLabs/blitz", features = ["prelude"] }
-dioxus-router = "0.7"
-dioxus = { version = "0.7", default-features = false }  # satisfies macro internals
+dioxus-native = { workspace = true, features = ["prelude"] }
+dioxus-router.workspace = true
+dioxus = { workspace = true, features = ["hooks", "macro"] }
 
 storage-sqlite = { workspace = true }
 client-core = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 ui = { workspace = true }
+image.workspace = true
+winit.workspace = true
+winit-wayland.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+xdg.workspace = true
 
 [features]
 # default = ["desktop"]
