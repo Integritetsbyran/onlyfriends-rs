@@ -3,11 +3,8 @@ use dioxus::prelude::*;
 use crate::{context, hex_util::hex_to_bytes};
 
 /// Confirmation screen shown after following an "add friend" deep link
-/// (e.g. from a scanned QR code / universal link). The platform shell is
-/// responsible for extracting `code` (the hex-encoded public key) from the
-/// incoming URL via `client_core::deep_link::parse_add_friend_link` and
-/// routing here — this component only handles decoding/validating the code
-/// and performing the add.
+/// (e.g. from a scanned QR code / universal link).
+
 #[component]
 pub fn AddFriendPage(code: String, on_added: EventHandler<()>) -> Element {
     let account = context::use_app_account();

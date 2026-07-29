@@ -23,23 +23,13 @@ watch_path = ["src"]
 
 [bundle]
 # Bundle identifier
-#
-# Placeholder — update before shipping, and keep this in sync with:
-# - `well-known/apple-app-site-association` (appID = "<TEAMID>.<identifier>")
-# - `well-known/assetlinks.json` (package_name)
 identifier = "com.onlyfriends.app"
 
 # Bundle publisher
-#
-# Placeholder — replace with the real publisher/org name before shipping.
-publisher = "OnlyFriends"
+publisher = "Integritetsbyrån"
 
 # Bundle icon
-#
-# TODO: no icon has been designed/added yet — this path doesn't exist.
-# `dx bundle` will fall back to a default icon until one is added at
-# `assets/icon.png` (and this path updated to match).
-icon = ["assets/icon.png"]
+icon = ["../ui-common/assets/icon.png"]
 
 # Bundle resources
 resources = ["assets/*"]
@@ -60,24 +50,7 @@ and reactions with the friends you choose to add — no public feed, no \
 algorithm, no strangers.
 """
 
-# Deep link ("add friend" QR / share link) configuration.
-#
-# `dx bundle` uses this to configure both platforms automatically:
-# - iOS: adds `onlyfriends` to CFBundleURLTypes, and
-#   `applinks:onlyfriends.app` to the associated-domains entitlement
-#   (Universal Links).
-# - Android: adds `onlyfriends` as an intent-filter scheme, and an
-#   auto-verify App Links intent-filter for `onlyfriends.app` (App Links).
-#
-# `onlyfriends.app` is a placeholder domain — update it here (and in
-# `client_core::deep_link::DEEP_LINK_HOST`, plus the two
-# `well-known/*` files) once a real production domain is chosen.
-#
-# Note: intentionally *not* also setting `[android].intent_filters` or
-# `[ios.entitlements].associated-domains` manually — `[deep_links]` already
-# derives both from `hosts`/`schemes`, and setting both risks duplicate
-# intent-filter entries in the generated AndroidManifest.xml.
 [deep_links]
 schemes = ["onlyfriends"]
-hosts = ["onlyfriends.app"]
+hosts = ["of.integritetsbyran.org"]
 paths = ["/add/*"]

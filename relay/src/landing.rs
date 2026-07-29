@@ -1,16 +1,5 @@
 //! "Add friend" deep-link fallback landing page, and the `.well-known`
 //! files needed for iOS Universal Links / Android App Links.
-//!
-//! When a scanned QR / shared `https://<host>/add/<code>` link isn't
-//! intercepted directly by the app (not installed, or link verification
-//! failed), the OS falls back to opening it in a browser — this module is
-//! what gets served in that case.
-//!
-//! See `well-known/README.md` and `client_core::deep_link` for the broader
-//! deep-link design. The scheme/path constants below intentionally
-//! duplicate the tiny string literals from `client_core::deep_link` rather
-//! than depending on that crate (and its crypto/HTTP-client dependency
-//! tree) from this server binary — keep them in sync if either changes.
 
 use axum::{
     extract::Path,
@@ -18,16 +7,9 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 
-/// Custom URL scheme the app registers — see `client_core::deep_link::DEEP_LINK_SCHEME`.
-const DEEP_LINK_SCHEME: &str = "onlyfriends";
-
-/// AASA file content, embedded at compile time so it can't drift from the
-/// checked-in template. See `well-known/README.md` for the placeholders
-/// that need updating before shipping.
 const APPLE_APP_SITE_ASSOCIATION: &str =
     include_str!("../../well-known/apple-app-site-association");
 
-/// Android Digital Asset Links file content, embedded the same way.
 const ASSET_LINKS_JSON: &str = include_str!("../../well-known/assetlinks.json");
 
 /// `GET /add/{code}` — the "add friend" landing page.
@@ -65,9 +47,6 @@ App Store or Play Store yet. If the app didn't open, ask whoever shared
 this link how to install it, then scan their code again.
 </p>
 </div>
-<script>
-window.location.replace("{DEEP_LINK_SCHEME}://add/{code}");
-</script>
 </body>
 </html>"#
     ))
@@ -94,9 +73,6 @@ fn json_response(body: &'static str) -> Response {
     ([(CONTENT_TYPE, "application/json")], body).into_response()
 }
 
-/// Same hex validation as `client_core::deep_link::parse_add_friend_link`
-/// (kept independent for the dependency-tree reasons above) — anything
-/// that fails this check is never interpolated into the response.
 fn is_hex(s: &str) -> bool {
     !s.is_empty() && s.len().is_multiple_of(2) && s.chars().all(|c| c.is_ascii_hexdigit())
 }
