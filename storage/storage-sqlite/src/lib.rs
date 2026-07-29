@@ -1,10 +1,7 @@
 use std::{path::Path, str::FromStr};
 
 use keystone::{
-    Identity,
-    identity::{MasterSeed, SigningPublicKey},
-    media::Media,
-    post::{PostContent, PostId},
+    Identity, envelope::{Letter, PostId}, identity::{MasterSeed, SigningPublicKey}, media::Media, post::PostContent
 };
 use mime::Mime;
 use storage_common::{
@@ -252,7 +249,7 @@ impl SqliteStorage {
 
     fn save_post_inner(
         &mut self,
-        encrypted: &keystone::EncryptedPost,
+        encrypted: &Letter,
         post: &PostContent,
     ) -> Result<bool, SqliteStorageError> {
         let transaction = self.conn.transaction()?;
@@ -465,7 +462,7 @@ impl Storage for SqliteStorage {
 
     async fn save_post(
         &mut self,
-        encrypted: &keystone::EncryptedPost,
+        encrypted: &keystone::Letter,
         post: &PostContent,
     ) -> StorageResult<bool> {
         Ok(self.save_post_inner(encrypted, post)?)

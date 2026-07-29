@@ -1,13 +1,15 @@
-use keystone::{
-    ResponseBody::{Comment, Reaction},
-    identity::SigningPublicKey,
-    post::{PostContent, PostId},
-};
 use onlyfriends_time::days_since_epoch;
 use std::sync::Arc;
 use storage_common::storage::Storage;
 use storage_common::types::{relay_config::RelayConfig, stored_response::ResponseKind};
 use tokio::sync::{Mutex, MutexGuard};
+use keystone::Envelope;
+use keystone::identity::SigningPublicKey;
+use keystone::message::Message;
+use keystone::post::PostContent;
+use keystone::envelope::PostId;
+
+use std::sync::{Arc, Mutex};
 
 use crate::{ClientError, RelayClient, mailbox_address, my_direction};
 
@@ -151,7 +153,7 @@ impl Account {
         // user has any friends yet.
         let mut recipients_with_self = recipients.clone();
         recipients_with_self.push(self.identity.public());
-        let posts = keystone::post::seal_post(&self.identity, post, &recipients_with_self);
+        let posts = keystone::Envelope::seal_envelope(&self.identity, &Message::Post(post.clone()), &recipients_with_self);
 
         let post_id = posts.first().map(|p| p.post.id);
         if let Some(first) = posts.first() {
@@ -159,8 +161,7 @@ impl Account {
         }
 
         // Send only to actual friends; the trailing self-sealed post is unused.
-        for (friend, post) in friends.iter().zip(posts.iter()) {
-            let envelope: keystone::Envelope = keystone::Envelope::Post(post.clone());
+        for (friend, envelope) in friends.iter().zip(posts.iter()) {
             let epoch = days_since_epoch();
             let addr = mailbox_address(
                 &friend.pairwise_root,
@@ -197,34 +198,19 @@ impl Account {
                     continue;
                 };
 
-                match envelope {
-                    keystone::Envelope::Post(sealed_post) => {
-                        let Ok(post) =
-                            keystone::post::open_post(&self.identity, &friend.public, &sealed_post)
-                        else {
-                            continue;
-                        };
-                        if self
-                            .store()
-                            .await
-                            .save_post(&sealed_post.post, &post)
-                            .await?
-                        {
+                let Ok(letter) =
+                    envelope.open_envelope(&self.identity, &friend.public)
+                else {
+                    continue
+                };
+
+                match letter {
+                    Message::Post(post) => {
+                        if self.store().await.save_post(&envelope.post, &post).await? {
                             sync_results.new_posts.push(post);
                         }
                     }
-                    keystone::Envelope::Profile(sealed) => {
-                        let Ok(profile_bytes) =
-                            keystone::SealedBox::open(&self.identity.dh_secret(), &sealed)
-                        else {
-                            continue;
-                        };
-
-                        let Ok(profile) = postcard::from_bytes::<keystone::Profile>(&profile_bytes)
-                        else {
-                            continue;
-                        };
-
+                    Message::Profile(profile) => {
                         if keystone::profile::verify_profile(&profile).is_err() {
                             continue;
                         }
@@ -236,32 +222,30 @@ impl Account {
                             sync_results.updated_profiles.push(profile);
                         }
                     }
-                    keystone::Envelope::Response(sealed_box) => {
-                        let Ok(rb) =
-                            keystone::response::open_and_vouch(&self.identity, &sealed_box)
-                        else {
-                            continue;
+                    Message::Response(response) => {
+                        // Vouch for the response by signing it
+                        use keystone::Signable;
+                        let vouch_sig = response.sign_with(&self.identity.signing_key());
+                        let rb = keystone::response::ResponseRebroadcast {
+                            inner: response,
+                            vouch_sig: vouch_sig.into(),
                         };
 
                         let friends = self.store().await.load_friends().await?;
                         for f in friends {
-                            let rb_bytes = postcard::to_allocvec(&rb)?;
-                            let resealed = keystone::SealedBox::seal(&f.public.dh_pub, &rb_bytes);
-                            self.post_envelope(&f, keystone::Envelope::Rebroadcast(resealed))
-                                .await?;
+                            let envelopes = Envelope::seal_envelope(
+                                &self.identity,
+                                &Message::Rebroadcast(rb.clone()),
+                                &[f.public.clone()]
+                            );
+                            if let Some(envelope) = envelopes.into_iter().next() {
+                                self.post_envelope(&f, envelope).await?;
+                            }
                         }
                         sync_results.new_responses.push(rb.inner.clone());
                         self.save_response(rb).await?;
                     }
-                    keystone::Envelope::Rebroadcast(sealed_box) => {
-                        let Ok(rb) = keystone::response::open_rebroadcast(
-                            &self.identity,
-                            &friend.public.sign_pub,
-                            &sealed_box,
-                        ) else {
-                            continue;
-                        };
-
+                    Message::Rebroadcast(rb) => {
                         sync_results.new_responses.push(rb.inner.clone());
                         self.save_response(rb).await?;
                     }
@@ -337,11 +321,12 @@ impl Account {
         else {
             return Ok(());
         };
-        let profile_bytes = postcard::to_allocvec(&profile)?;
-        let envelope = keystone::Envelope::Profile(keystone::SealedBox::seal(
-            &friend.public.dh_pub,
-            &profile_bytes,
-        ));
+        let envelopes = Envelope::seal_envelope(
+            &self.identity,
+            &Message::Profile(profile),
+            &[friend.public.clone()]
+        );
+        let envelope = envelopes.into_iter().next().expect("one recipient");
 
         self.post_envelope(friend, envelope).await?;
         Ok(())
@@ -364,15 +349,18 @@ impl Account {
         let inner = keystone::response::create_response(
             &self.identity,
             post_id,
-            Reaction {
+            keystone::ResponseBody::Reaction {
                 emoji: emoji.to_string(),
             },
         );
 
-        let bytes = postcard::to_allocvec(&inner)?;
-        let sealed = keystone::SealedBox::seal(&owner.public.dh_pub, &bytes);
-        self.post_envelope(&owner, keystone::Envelope::Response(sealed))
-            .await
+        let envelopes = Envelope::seal_envelope(
+            &self.identity,
+            &Message::Response(inner),
+            &[owner.public.clone()]
+        );
+        let envelope = envelopes.into_iter().next().expect("one recipient");
+        self.post_envelope(&owner, envelope).await
     }
 
     pub async fn comment(
@@ -392,15 +380,16 @@ impl Account {
         let inner = keystone::response::create_response(
             &self.identity,
             post_id,
-            Comment {
+            keystone::ResponseBody::Comment {
                 text: text.to_string(),
             },
         );
 
-        let bytes = postcard::to_allocvec(&inner)?;
-        let sealed = keystone::SealedBox::seal(&owner.public.dh_pub, &bytes);
-        self.post_envelope(&owner, keystone::Envelope::Response(sealed))
-            .await
+        let message = Message::Response(inner);
+        let envelopes = Envelope::seal_envelope(&self.identity, &message, &[owner.public.clone()]);
+        let envelope = envelopes.into_iter().next().expect("one recipient");
+
+        self.post_envelope(&owner, envelope).await
     }
 
     pub async fn load_feed(&mut self) -> crate::Result<Vec<FeedPost>> {

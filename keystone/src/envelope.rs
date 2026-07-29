@@ -2,7 +2,6 @@ use crate::message::Message;
 use crate::{Signable};
 use crate::crypto::{self, SealedBox};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
-use crate::media::Media;
 use crate::signing::Signature;
 use serde::{Deserialize, Serialize};
 
