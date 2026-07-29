@@ -1,7 +1,7 @@
-use keystone::{identity::SigningPublicKey, media::Media, envelope::PostId};
+use keystone::{identity::SigningPublicKey, media::Media, envelope::LetterId};
 
 pub struct StoredPost {
-    pub id: PostId,
+    pub id: LetterId,
     pub author: SigningPublicKey,
     pub body: String, // decrypted
     pub created_at: u64,

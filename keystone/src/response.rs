@@ -2,7 +2,7 @@ use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Identity, SealedBox, Signable, envelope::PostId, identity::SigningPublicKey, signing::Signature
+    Identity, SealedBox, Signable, envelope::LetterId, identity::SigningPublicKey, signing::Signature
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -13,7 +13,7 @@ pub enum ResponseBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseInner {
-    pub post_id: PostId,
+    pub letter_id: LetterId,
     /// Responder's public signing key
     pub author: SigningPublicKey,
     pub body: ResponseBody,
@@ -24,12 +24,12 @@ pub struct ResponseInner {
 impl Signable for ResponseInner {
     fn signing_bytes(&self) -> Vec<u8> {
         let Self {
-            post_id,
+            letter_id,
             author,
             body,
             sig: _, // don't sign the signature
         } = self;
-        postcard::to_allocvec(&(post_id, author, body)).expect("serializes")
+        postcard::to_allocvec(&(letter_id, author, body)).expect("serializes")
     }
 }
 
@@ -40,9 +40,9 @@ pub struct ResponseRebroadcast {
     pub vouch_sig: Signature,
 }
 
-pub fn create_response(responder: &Identity, post_id: PostId, body: ResponseBody) -> ResponseInner {
+pub fn create_response(responder: &Identity, letter_id: LetterId, body: ResponseBody) -> ResponseInner {
     let mut response_inner = ResponseInner {
-        post_id,
+        letter_id,
         author: responder.public().sign_pub,
         body,
         sig: Signature::invalid(),
@@ -109,12 +109,12 @@ mod tests {
         let carl = Identity::generate();
         let bob = Identity::generate();
 
-        let post_id = PostId::from([1u8; 16]);
+        let letter_id = LetterId::from([1u8; 16]);
 
         // 1. Carl builds + signs a reaction, seals it to Alice (the post owner).
         let inner = create_response(
             &carl,
-            post_id,
+            letter_id,
             ResponseBody::Reaction {
                 emoji: "👍".to_string(),
             },
@@ -123,7 +123,7 @@ mod tests {
 
         // 2. Alice opens it, verifies Carl's sig, and vouches.
         let rb = open_and_vouch(&alice, &sealed_to_alice).unwrap();
-        assert_eq!(rb.inner.post_id, post_id);
+        assert_eq!(rb.inner.letter_id, letter_id);
         assert_eq!(rb.inner.author, carl.public().sign_pub);
         match &rb.inner.body {
             ResponseBody::Reaction { emoji } => assert_eq!(emoji, "👍"),
@@ -151,7 +151,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId::from([1u8; 16]),
+            LetterId::from([1u8; 16]),
             ResponseBody::Reaction { emoji: "x".into() },
         );
         let sealed_to_alice = seal_response(&inner, &alice.public().dh_pub);
@@ -168,7 +168,7 @@ mod tests {
 
         let mut inner = create_response(
             &carl,
-            PostId::from([1u8; 16]),
+            LetterId::from([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -193,7 +193,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId::from([1u8; 16]),
+            LetterId::from([1u8; 16]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -217,7 +217,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            PostId::from([2u8; 16]),
+            LetterId::from([2u8; 16]),
             ResponseBody::Comment {
                 text: "cool comment".to_string(),
             },

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use keystone::{
-    Identity, envelope::{Letter, PostId}, identity::{MasterSeed, SigningPublicKey}, media::Media, post::PostContent
+    Identity, envelope::{Letter, LetterId}, identity::{MasterSeed, SigningPublicKey}, media::Media, post::PostContent
 };
 use mime::Mime;
 use storage_common::{
@@ -303,14 +303,14 @@ impl SqliteStorage {
 
     fn save_response_inner(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
         response: &StoredResponse,
     ) -> Result<bool, SqliteStorageError> {
         let rows = self.conn.execute(
             "INSERT OR IGNORE INTO responses (post_id, author, kind, content)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                post_id.to_byte_slice(),
+                letter_id.to_byte_slice(),
                 response.author.to_byte_slice(),
                 u8::from(&response.kind),
                 &response.content,
@@ -321,13 +321,13 @@ impl SqliteStorage {
 
     fn load_responses_for_inner(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
     ) -> Result<Vec<StoredResponse>, SqliteStorageError> {
         let mut stmt = self
             .conn
             .prepare("SELECT author, kind, content FROM responses WHERE post_id = ?1")?;
 
-        let rows = stmt.query_map([post_id.to_byte_slice()], |r| {
+        let rows = stmt.query_map([letter_id.to_byte_slice()], |r| {
             let author: [u8; 32] = r.get(0)?;
             Ok(StoredResponse {
                 author: author.into(),
@@ -438,14 +438,14 @@ impl Storage for SqliteStorage {
 
     fn save_response(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
         response: &StoredResponse,
     ) -> StorageResult<bool> {
-        Ok(self.save_response_inner(post_id, response)?)
+        Ok(self.save_response_inner(letter_id, response)?)
     }
 
-    fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
-        Ok(self.load_responses_for_inner(post_id)?)
+    fn load_responses_for(&mut self, letter_id: &LetterId) -> StorageResult<Vec<StoredResponse>> {
+        Ok(self.load_responses_for_inner(letter_id)?)
     }
 
     fn get_cursor(

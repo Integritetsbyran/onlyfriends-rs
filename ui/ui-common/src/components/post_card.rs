@@ -119,7 +119,7 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
             }
 
             ReactionBar {
-                post_id: post.id,
+                letter_id: post.id,
                 post_author: post.author,
                 reactions: post.reactions.clone(),
             }
@@ -138,7 +138,7 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
 
             if *show_comments.read() {
                 CommentList {
-                    post_id: post.id,
+                    letter_id: post.id,
                     post_author: post.author,
                     comments: post.comments.clone(),
                 }

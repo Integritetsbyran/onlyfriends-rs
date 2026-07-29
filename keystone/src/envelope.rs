@@ -6,9 +6,9 @@ use crate::signing::Signature;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PostId([u8; 16]);
+pub struct LetterId([u8; 16]);
 
-impl PostId {
+impl LetterId {
     pub fn random() -> Self {
         Self(crypto::random_bytes())
     }
@@ -18,7 +18,7 @@ impl PostId {
     }
 }
 
-impl From<[u8; 16]> for PostId {
+impl From<[u8; 16]> for LetterId {
     fn from(bytes: [u8; 16]) -> Self {
         Self(bytes)
     }
@@ -26,7 +26,7 @@ impl From<[u8; 16]> for PostId {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Letter {
-    pub id: PostId,
+    pub id: LetterId,
     pub author: SigningPublicKey,
     pub created_at: u64,
     pub content_ct: Vec<u8>,
@@ -79,7 +79,7 @@ impl Envelope {
         .as_secs();
 
     let mut post = Letter {
-        id: PostId::random(),
+        id: LetterId::random(),
         author: author.public().sign_pub,
         created_at,
         content_ct: body_ct,

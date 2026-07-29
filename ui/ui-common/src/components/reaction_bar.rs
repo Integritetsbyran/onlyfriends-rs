@@ -1,12 +1,12 @@
 use crate::context;
 use dioxus::prelude::*;
 use keystone::identity::SigningPublicKey;
-use keystone::envelope::PostId;
+use keystone::envelope::LetterId;
 
 /// Emoji reaction bar displayed under a post.
 #[component]
 pub fn ReactionBar(
-    post_id: PostId,
+    letter_id: LetterId,
     post_author: SigningPublicKey,
     reactions: Vec<client_core::FeedReaction>,
 ) -> Element {
@@ -39,7 +39,7 @@ pub fn ReactionBar(
         sending.set(true);
         spawn(async move {
             let acc = arc.lock().await;
-            match acc.react(post_id, &post_author, &emoji).await {
+            match acc.react(letter_id, &post_author, &emoji).await {
                 Ok(()) => emoji_input.set(String::new()),
                 Err(e) => err.set(format!("{e}")),
             }
