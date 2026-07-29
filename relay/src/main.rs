@@ -4,10 +4,7 @@ use std::{
 };
 
 use axum::{
-    Router,
-    extract::{Path, Query, State},
-    http::StatusCode,
-    routing::post,
+    Router, extract::{Path, Query, State}, http::StatusCode, routing::{get, post},
 };
 use clap::Parser;
 use serde::Deserialize;

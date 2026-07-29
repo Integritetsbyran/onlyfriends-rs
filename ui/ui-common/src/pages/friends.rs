@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{components::FriendItem, context};
+use crate::{components::{AddFriendQrCode, FriendItem}, context};
 
 fn bytes_to_hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::new(), |mut s, b| {
@@ -19,6 +19,7 @@ fn hex_to_bytes(s: &str) -> Option<Vec<u8>> {
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16).ok())
         .collect()
 }
+
 
 /// Friends management page. Shows the user's own shareable public key, lists
 /// current friends, and provides a form to add a new friend by pasting their
@@ -119,6 +120,7 @@ pub fn FriendsPage() -> Element {
                     readonly: true,
                     value: "{own_hex}",
                 }
+                AddFriendQrCode { user_code: own_hex }
             }
 
             // Add friend form

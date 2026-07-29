@@ -10,3 +10,4 @@ keystone = { workspace = true }
 client-core = { workspace = true }
 storage-common = { workspace = true }
 base64.workspace = true
+qrcode = "0.14.1"
