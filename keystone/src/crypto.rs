@@ -45,7 +45,7 @@ pub fn aead_decrypt(key: &[u8; 32], nonce: &[u8; 24], ciphertext: &[u8]) -> crat
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SealedBox {
-    pub ephemeral_pub: [u8; 32],
+    pub ephemeral_pub: [u8; 32], // shared secret key
     pub nonce: [u8; 24],
     pub ct: Vec<u8>,
 }

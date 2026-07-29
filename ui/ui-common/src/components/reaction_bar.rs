@@ -1,7 +1,7 @@
 use crate::context;
 use dioxus::prelude::*;
 use keystone::identity::SigningPublicKey;
-use keystone::post::PostId;
+use keystone::envelope::PostId;
 
 /// Emoji reaction bar displayed under a post.
 #[component]
