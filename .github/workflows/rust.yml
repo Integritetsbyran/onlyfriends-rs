@@ -48,19 +48,20 @@ jobs:
         run: nix develop --command cargo clippy --all-targets --all-features -- -D warnings
 
   # --- Tests ---
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  # TODO: Tests currently crash in the pipeline due to memory overflow, fix. See https://linear.app/ham-unlimited/issue/OF-29/fix-test-pipeline
+  # test:
+  #   name: Run Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+  #     - uses: DeterminateSystems/nix-installer-action@main
 
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+  #     - uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ hashFiles('flake.lock') }}
+  #     - uses: Swatinem/rust-cache@v2
+  #       with:
+  #         key: ${{ hashFiles('flake.lock') }}
 
       - name: Run tests
         run: nix develop --command cargo test --workspace --all-features --exclude desktop --exclude mobile --exclude web

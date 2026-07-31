@@ -1,0 +1,11 @@
+[package]
+name = "storage-sqlite"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rusqlite = { workspace = true, features = ["bundled"] }
+storage-common = { workspace = true }
+thiserror = { workspace = true }
+keystone = { workspace = true }
+mime = { workspace = true }

@@ -1,0 +1,48 @@
+id: org.integritetsbyran.OnlyFriends
+runtime: org.freedesktop.Platform
+# NOTE: keep in sync with github workflow
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  build-args:
+    - --share=network
+  # env:
+  #   CARGO_HOME: /run/build/rust/cargo
+
+modules:
+  - name: dioxus-cli
+    buildsystem: simple
+    build-commands:
+      - cargo install --locked dioxus-cli@0.7.9 --root /app
+  - name: onlyfriends
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../..
+    build-commands:
+      - dx build --package onlyfriends-desktop --release --locked --linux --renderer native
+      - install -Dm755 target/dx/onlyfriends-desktop/release/linux/app/onlyfriends-desktop $FLATPAK_DEST/bin/onlyfriends
+      - install -Dm755 target/dx/onlyfriends-desktop/release/linux/app/assets/* -t $FLATPAK_DEST/bin/assets/
+
+      - install -Dm644 ui/desktop/org.integritetsbyran.OnlyFriends.desktop $FLATPAK_DEST/share/applications/org.integritetsbyran.OnlyFriends.desktop
+
+      - install -Dm644 ui/ui-common/assets/icon.svg      $FLATPAK_DEST/share/icons/hicolor/scalable/apps/org.integritetsbyran.OnlyFriends.svg
+      - install -Dm644 ui/ui-common/assets/icon_x512.png $FLATPAK_DEST/share/icons/hicolor/512x512/apps/org.integritetsbyran.OnlyFriends.png
+      - install -Dm644 ui/ui-common/assets/icon_x192.png $FLATPAK_DEST/share/icons/hicolor/192x192/apps/org.integritetsbyran.OnlyFriends.png
+      - install -Dm644 ui/ui-common/assets/icon_x144.png $FLATPAK_DEST/share/icons/hicolor/144x144/apps/org.integritetsbyran.OnlyFriends.png
+      - install -Dm644 ui/ui-common/assets/icon_x128.png $FLATPAK_DEST/share/icons/hicolor/128x128/apps/org.integritetsbyran.OnlyFriends.png
+      - install -Dm644 ui/ui-common/assets/icon_x72.png  $FLATPAK_DEST/share/icons/hicolor/72x72/apps/org.integritetsbyran.OnlyFriends.png
+
+finish-args:
+  # Wayland access
+  - --socket=wayland
+  # GPU acceleration
+  - --device=dri
+  # Network access
+  - --share=network
+
+command: 'onlyfriends'

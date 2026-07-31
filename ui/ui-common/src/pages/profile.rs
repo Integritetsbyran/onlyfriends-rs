@@ -20,7 +20,7 @@ pub fn ProfilePage() -> Element {
             spawn(async move {
                 let acc = arc.lock().await;
                 let sign_pub = acc.identity.public().sign_pub;
-                if let Ok(Some(profile)) = acc.storage.load_profile(&sign_pub) {
+                if let Ok(Ok(Some(profile))) = acc.store().map(|mut s| s.load_profile(&sign_pub)) {
                     display_name.set(profile.display_name.clone());
                     bio.set(profile.bio.clone());
                 }
@@ -89,11 +89,18 @@ pub fn ProfilePage() -> Element {
                             class: "btn btn-primary",
                             disabled: *saving.read(),
                             onclick: save,
-                            if *saving.read() { "Saving…" } else { "Save" }
+                            if *saving.read() {
+                                "Saving…"
+                            } else {
+                                "Save"
+                            }
                         }
                         button {
                             class: "btn btn-ghost",
-                            onclick: move |_| { editing.set(false); save_err.set(String::new()); },
+                            onclick: move |_| {
+                                editing.set(false);
+                                save_err.set(String::new());
+                            },
                             "Cancel"
                         }
                     }
@@ -109,7 +116,10 @@ pub fn ProfilePage() -> Element {
                         }
                         button {
                             class: "btn btn-secondary",
-                            onclick: move |_| { editing.set(true); save_ok.set(false); },
+                            onclick: move |_| {
+                                editing.set(true);
+                                save_ok.set(false);
+                            },
                             "Edit"
                         }
                     }
