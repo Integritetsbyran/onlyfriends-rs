@@ -3,7 +3,9 @@ use keystone::{
     post::{PostContent, PostId},
 };
 
-use crate::types::{stored_post::StoredPost, stored_response::StoredResponse};
+use crate::types::{
+    relay_config::RelayConfig, stored_post::StoredPost, stored_response::StoredResponse,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
@@ -21,6 +23,12 @@ pub trait Storage: Send {
 
     /// Load our own identity from storage, returns None if no identity is saved.
     fn load_identity(&mut self) -> StorageResult<Option<keystone::Identity>>;
+
+    /// Save the relay config to storage, only one can ever be stored.
+    fn save_relay_config(&mut self, config: &RelayConfig) -> StorageResult<()>;
+
+    /// Load the relay config from storage, if any.
+    fn load_relay_config(&mut self) -> StorageResult<Option<RelayConfig>>;
 
     /// Save a friend to storage.
     fn save_friend(&mut self, f: &keystone::Friend) -> StorageResult<()>;

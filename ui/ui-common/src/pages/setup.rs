@@ -13,7 +13,6 @@ pub fn SetupPage(
     on_complete: EventHandler<()>,
     get_storage: Callback<(), client_core::account::Store>,
 ) -> Element {
-    // TODO: relay must be persisted somewhere. Database?
     let mut relay_url = use_signal(|| "http://localhost:3000".to_string());
     let mut display_name = use_signal(String::new);
     let mut bio = use_signal(String::new);
@@ -39,9 +38,7 @@ pub fn SetupPage(
     if let State::Initial = state() {
         state.set(State::LoadingAccount);
         spawn(async move {
-            // TODO: relay must be persisted somewhere. Database?
-            let relay_url = "http://localhost:3000".to_string();
-            match client_core::Account::open(get_storage(()), &relay_url) {
+            match client_core::Account::open(get_storage(())) {
                 Ok(Some(acc)) => {
                     account.set(Some(Arc::new(Mutex::new(acc))));
                     on_complete.call(());
