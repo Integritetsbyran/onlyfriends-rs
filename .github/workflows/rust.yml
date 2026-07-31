@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=mold"
 
 jobs:
   # --- Formatting Check ---
@@ -62,5 +63,5 @@ jobs:
   #       with:
   #         key: ${{ hashFiles('flake.lock') }}
 
-  #     - name: Run tests
-  #       run: nix develop --command cargo test --all-features
+      - name: Run tests
+        run: nix develop --command cargo test --workspace --all-features --exclude desktop --exclude mobile --exclude web
