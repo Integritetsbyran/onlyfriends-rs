@@ -6,7 +6,8 @@
 # - Verifies that the version in the tag matches the `version` field in the crates.
 # - Builds flatpaks for onlyfriends-desktop (x86_64 and aarch64)
 # - Creates a github release with the flatpaks included
-# 
+# - Pushes to a flatpak repository
+
 name: release/onlyfriends-desktop
 
 on:
@@ -147,3 +148,13 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "${{ github.ref_name }}" \
             bundles/*.flatpak
+
+      - name: Push to flatpak repository
+        env:
+          FLATPAK_REPO_URL: ${{ secrets.FLATPAK_REPO_URL }}
+          FLATPAK_REPO_API_KEY: ${{ secrets.FLATPAK_REPO_API_KEY }}
+        run: |
+          for b in bundles/*.flatpak; do
+            echo "pushing $b"
+            curl -v -XPOST -T "$b" "$FLATPAK_REPO_URL/flatpak-bundle/upload?key=$FLATPAK_REPO_API_KEY"
+          done
