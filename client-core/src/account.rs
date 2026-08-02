@@ -392,7 +392,11 @@ impl Account {
         );
 
         let message = Message::Response(inner);
-        let envelopes = Envelope::seal_envelope(&self.identity, &message, std::slice::from_ref(&owner.public));
+        let envelopes = Envelope::seal_envelope(
+            &self.identity,
+            &message,
+            std::slice::from_ref(&owner.public),
+        );
         let envelope = envelopes.into_iter().next().expect("one recipient");
 
         self.post_envelope(&owner, envelope).await
