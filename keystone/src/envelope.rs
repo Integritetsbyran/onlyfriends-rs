@@ -100,12 +100,21 @@ impl Envelope {
 
 impl Signable for Letter {
     fn signing_bytes(&self) -> Vec<u8> {
+        let Self {
+            id,
+            author,
+            created_at,
+            content_ct,
+            content_nonce,
+            sig: _, /*signature should not containt itself*/
+        } = &self;
+
         postcard::to_allocvec(&(
-            self.id,
-            self.author,
-            self.created_at,
-            &self.content_ct,
-            self.content_nonce,
+            id,
+            author,
+            created_at,
+            &content_ct,
+            content_nonce,
         ))
         .expect("serializes")
     }
