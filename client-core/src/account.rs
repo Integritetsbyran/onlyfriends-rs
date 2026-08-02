@@ -234,7 +234,7 @@ impl Account {
                         let vouch_sig = response.sign_with(&self.identity.signing_key());
                         let rb = keystone::response::ResponseRebroadcast {
                             inner: response,
-                            vouch_sig: vouch_sig.into(),
+                            vouch_sig,
                         };
 
                         let friends = self.store().await.load_friends().await?;
@@ -242,7 +242,7 @@ impl Account {
                             let envelopes = Envelope::seal_envelope(
                                 &self.identity,
                                 &Message::Rebroadcast(rb.clone()),
-                                &[f.public.clone()],
+                                std::slice::from_ref(&f.public),
                             );
                             if let Some(envelope) = envelopes.into_iter().next() {
                                 self.post_envelope(&f, envelope).await?;
@@ -330,7 +330,7 @@ impl Account {
         let envelopes = Envelope::seal_envelope(
             &self.identity,
             &Message::Profile(profile),
-            &[friend.public.clone()],
+            std::slice::from_ref(&friend.public),
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
 
@@ -363,7 +363,7 @@ impl Account {
         let envelopes = Envelope::seal_envelope(
             &self.identity,
             &Message::Response(inner),
-            &[owner.public.clone()],
+            std::slice::from_ref(&owner.public),
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
         self.post_envelope(&owner, envelope).await
@@ -392,7 +392,7 @@ impl Account {
         );
 
         let message = Message::Response(inner);
-        let envelopes = Envelope::seal_envelope(&self.identity, &message, &[owner.public.clone()]);
+        let envelopes = Envelope::seal_envelope(&self.identity, &message, std::slice::from_ref(&owner.public));
         let envelope = envelopes.into_iter().next().expect("one recipient");
 
         self.post_envelope(&owner, envelope).await
