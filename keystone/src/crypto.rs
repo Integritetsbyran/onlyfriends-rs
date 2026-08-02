@@ -44,30 +44,30 @@ pub fn aead_decrypt(key: &[u8; 32], nonce: &[u8; 24], ciphertext: &[u8]) -> crat
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SealedBox {
-    pub ephemeral_pub: [u8; 32], // shared secret key
-    pub nonce: [u8; 24],
-    pub ct: Vec<u8>,
+pub struct PublicKeySealed {
+    ephemeral_pub: [u8; 32],
+    nonce: [u8; 24],
+    cipher_text: Vec<u8>,
 }
 
-impl SealedBox {
-    pub fn seal(recipient: &DhPublicKey, plaintext: &[u8]) -> SealedBox {
+impl PublicKeySealed {
+    pub fn seal(recipient: &DhPublicKey, plaintext: &[u8]) -> PublicKeySealed {
         let eph = x25519_dalek::EphemeralSecret::random_from_rng(OsRng);
         let e_pub = x25519_dalek::PublicKey::from(&eph);
         let shared = eph.diffie_hellman(&recipient.into());
         let info = [labels::SEAL, &e_pub.to_bytes(), &recipient.to_bytes()].concat();
         let wrap_key = derive32(&shared.to_bytes(), &info);
-        let (nonce, ct) = aead_encrypt(&wrap_key, plaintext);
-        SealedBox {
+        let (nonce, cipher_text) = aead_encrypt(&wrap_key, plaintext);
+        PublicKeySealed {
             ephemeral_pub: e_pub.to_bytes(),
             nonce,
-            ct,
+            cipher_text,
         }
     }
 
     pub fn open(
         recipient_dh_secret: &x25519_dalek::StaticSecret,
-        sealed: &SealedBox,
+        sealed: &PublicKeySealed,
     ) -> crate::Result<Vec<u8>> {
         let shared = recipient_dh_secret.diffie_hellman(&PublicKey::from(sealed.ephemeral_pub));
         let info = [
@@ -77,7 +77,7 @@ impl SealedBox {
         ]
         .concat();
         let wrap_key = derive32(&shared.to_bytes(), &info);
-        aead_decrypt(&wrap_key, &sealed.nonce, &sealed.ct)
+        aead_decrypt(&wrap_key, &sealed.nonce, &sealed.cipher_text)
     }
 }
 
@@ -100,7 +100,7 @@ mod tests {
         let sk = StaticSecret::from(random_bytes::<32>());
         let pk = DhPublicKey::from(&sk);
         let secret = b"a content key goes here, 32 byte";
-        let sealed = SealedBox::seal(&pk, secret);
-        assert_eq!(SealedBox::open(&sk, &sealed).unwrap(), secret);
+        let sealed = PublicKeySealed::seal(&pk, secret);
+        assert_eq!(PublicKeySealed::open(&sk, &sealed).unwrap(), secret);
     }
 }

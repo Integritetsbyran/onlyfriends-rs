@@ -2,7 +2,7 @@ use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Identity, SealedBox, Signable, envelope::LetterId, identity::SigningPublicKey,
+    Identity, PublicKeySealed, Signable, envelope::LetterId, identity::SigningPublicKey,
     signing::Signature,
 };
 
@@ -56,8 +56,11 @@ pub fn create_response(
     response_inner
 }
 
-pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<ResponseRebroadcast> {
-    let opened = SealedBox::open(&owner.dh_secret(), sealed)?;
+pub fn open_and_vouch(
+    owner: &Identity,
+    sealed: &PublicKeySealed,
+) -> crate::Result<ResponseRebroadcast> {
+    let opened = PublicKeySealed::open(&owner.dh_secret(), sealed)?;
     let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
     let vk = ed25519_dalek::VerifyingKey::try_from(&response_inner.author)?;
 
@@ -76,9 +79,9 @@ pub fn open_and_vouch(owner: &Identity, sealed: &SealedBox) -> crate::Result<Res
 pub fn open_rebroadcast(
     recipient: &Identity,
     owner: &SigningPublicKey,
-    sealed: &SealedBox,
+    sealed: &PublicKeySealed,
 ) -> crate::Result<ResponseRebroadcast> {
-    let opened = SealedBox::open(&recipient.dh_secret(), sealed)?;
+    let opened = PublicKeySealed::open(&recipient.dh_secret(), sealed)?;
     let rb = postcard::from_bytes::<ResponseRebroadcast>(&opened)?;
 
     let vk = ed25519_dalek::VerifyingKey::try_from(owner)?;
@@ -96,15 +99,15 @@ mod tests {
     use super::*;
 
     // Helper: seal a signed ResponseInner to a recipient, the way Account::react would.
-    fn seal_response(inner: &ResponseInner, recipient: &DhPublicKey) -> SealedBox {
+    fn seal_response(inner: &ResponseInner, recipient: &DhPublicKey) -> PublicKeySealed {
         let bytes = postcard::to_allocvec(inner).expect("serializes");
-        SealedBox::seal(recipient, &bytes)
+        PublicKeySealed::seal(recipient, &bytes)
     }
 
     // Helper: seal a rebroadcast to a recipient, the way the owner's rebroadcast loop would.
-    fn seal_rebroadcast(rb: &ResponseRebroadcast, recipient: &DhPublicKey) -> SealedBox {
+    fn seal_rebroadcast(rb: &ResponseRebroadcast, recipient: &DhPublicKey) -> PublicKeySealed {
         let bytes = postcard::to_allocvec(rb).expect("serializes");
-        SealedBox::seal(recipient, &bytes)
+        PublicKeySealed::seal(recipient, &bytes)
     }
 
     #[test]
