@@ -1,22 +1,22 @@
 use deli::Model;
-use keystone::{identity::SigningPublicKey, post::PostId};
+use keystone::{envelope::LetterId, identity::SigningPublicKey};
 use serde::{Deserialize, Serialize};
 use storage_common::types::stored_response::{ResponseKind, StoredResponse};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Model)]
-#[deli(key(post_id, author, kind))]
+#[deli(key(letter_id, author, kind))]
 pub struct WebResponse {
     #[deli(index)]
-    post_id: PostId,
+    letter_id: LetterId,
     author: SigningPublicKey,
     kind: ResponseKind,
     content: String,
 }
 
 impl WebResponse {
-    pub fn new(post_id: PostId, response: StoredResponse) -> Self {
+    pub fn new(letter_id: LetterId, response: StoredResponse) -> Self {
         Self {
-            post_id,
+            letter_id,
             author: response.author,
             kind: response.kind,
             content: response.content,

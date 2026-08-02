@@ -1,13 +1,12 @@
-use deli::{Database, KeyRange, Model};
-use keystone::{identity::SigningPublicKey, post::PostId};
-use storage_common::{
-    storage::{Storage, StorageError, StorageResult},
-    types::{relay_config::RelayConfig, stored_post::StoredPost, stored_response::StoredResponse},
-};
-
 use crate::inner::tables::{
     cursor::WebCursor, friend::WebFriend, identity::WebIdentity, post::WebPost,
     profile::WebProfile, relay_config::WebRelayConfig, response::WebResponse,
+};
+use deli::{Database, KeyRange, Model};
+use keystone::{envelope::LetterId, identity::SigningPublicKey};
+use storage_common::{
+    storage::{Storage, StorageError, StorageResult},
+    types::{relay_config::RelayConfig, stored_post::StoredPost, stored_response::StoredResponse},
 };
 
 mod tables;
@@ -170,7 +169,7 @@ impl WebStorage {
 
     async fn save_post_inner(
         &mut self,
-        encrypted: &keystone::EncryptedPost,
+        encrypted: &keystone::Letter,
         post: &keystone::post::PostContent,
     ) -> Result<bool, WebStorageError> {
         let tx = self
@@ -195,7 +194,7 @@ impl WebStorage {
 
     async fn save_response_inner(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
         response: &StoredResponse,
     ) -> Result<bool, WebStorageError> {
         let tx = self
@@ -204,7 +203,7 @@ impl WebStorage {
             .with_model::<WebResponse>()
             .writable()
             .build()?;
-        let web_response = WebResponse::new(*post_id, response.clone());
+        let web_response = WebResponse::new(*letter_id, response.clone());
         WebResponse::with_transaction(&tx)?
             .add(&web_response)
             .await?;
@@ -214,13 +213,13 @@ impl WebStorage {
 
     async fn load_responses_for_inner(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
     ) -> Result<Vec<StoredResponse>, WebStorageError> {
         let tx = self.db.transaction().with_model::<WebResponse>().build()?;
 
         let web_responses: Vec<WebResponse> = WebResponse::with_transaction(&tx)?
-            .by_post_id()?
-            .get_all(KeyRange::from(post_id), None)
+            .by_letter_id()?
+            .get_all(KeyRange::from(letter_id), None)
             .await?;
         tx.commit().await?;
         Ok(web_responses.into_iter().map(|r| r.into()).collect())
@@ -328,7 +327,7 @@ impl Storage for WebStorage {
 
     async fn save_post(
         &mut self,
-        encrypted: &keystone::EncryptedPost,
+        encrypted: &keystone::Letter,
         post: &keystone::post::PostContent,
     ) -> StorageResult<bool> {
         Ok(self.save_post_inner(encrypted, post).await?)
@@ -340,14 +339,17 @@ impl Storage for WebStorage {
 
     async fn save_response(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
         response: &StoredResponse,
     ) -> StorageResult<bool> {
-        Ok(self.save_response_inner(post_id, response).await?)
+        Ok(self.save_response_inner(letter_id, response).await?)
     }
 
-    async fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>> {
-        Ok(self.load_responses_for_inner(post_id).await?)
+    async fn load_responses_for(
+        &mut self,
+        letter_id: &LetterId,
+    ) -> StorageResult<Vec<StoredResponse>> {
+        Ok(self.load_responses_for_inner(letter_id).await?)
     }
 
     async fn get_cursor(

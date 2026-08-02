@@ -1,16 +1,12 @@
 use deli::Model;
-use keystone::{
-    EncryptedPost,
-    identity::SigningPublicKey,
-    post::{PostContent, PostId},
-};
+use keystone::{envelope::LetterId, identity::SigningPublicKey, post::PostContent};
 use serde::{Deserialize, Serialize};
 use storage_common::types::stored_post::StoredPost;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Model)]
 pub struct WebPost {
     #[deli(key)]
-    post_id: PostId,
+    post_id: LetterId,
     author: SigningPublicKey,
     body: String,
     created_at: u64,
@@ -18,7 +14,7 @@ pub struct WebPost {
 }
 
 impl WebPost {
-    pub fn new(encrypted: EncryptedPost, post: PostContent) -> Self {
+    pub fn new(encrypted: keystone::Letter, post: PostContent) -> Self {
         Self {
             post_id: encrypted.id,
             author: encrypted.author,
