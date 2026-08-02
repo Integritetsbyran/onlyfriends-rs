@@ -2,29 +2,27 @@ use std::time::{Duration, Instant};
 
 use tracing::Level;
 
-use crate::SharedStore;
+use crate::{Opt, SharedStore};
 
 /// How often to run the cleanup job.
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60 * 30); // 30 min
 
-/// Remove mailbox entries older than this.
-const MAX_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 7); // 7 days
-
 const MAX_SLEEP_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Periodically clean up the store.
-pub(crate) fn start_task(store: &SharedStore) {
+pub(crate) fn start_task(store: &SharedStore, opt: &Opt) {
     let store = store.clone();
+    let max_age = Duration::from_secs(opt.mailbox_max_age);
     tokio::spawn(async move {
         loop {
-            cleanup(&store);
+            cleanup(&store, max_age);
             sleep(CLEANUP_INTERVAL).await;
         }
     });
 }
 
 #[tracing::instrument(skip_all, level = Level::DEBUG)]
-fn cleanup(store: &SharedStore) {
+fn cleanup(store: &SharedStore, max_age: Duration) {
     tracing::debug!("running");
     let mut store = store.lock().expect("poisoned");
     let mut removed_entries: usize = 0;
@@ -32,7 +30,7 @@ fn cleanup(store: &SharedStore) {
     store.mailboxes.retain(|_addr, mailbox| {
         // Remove expired mailbox entries
         let entry_count = mailbox.len();
-        mailbox.retain(|entry| entry.uploaded_at.elapsed() <= MAX_AGE);
+        mailbox.retain(|entry| entry.uploaded_at.elapsed() <= max_age);
         removed_entries += entry_count.saturating_sub(mailbox.len());
 
         // Remove empty mailboxes

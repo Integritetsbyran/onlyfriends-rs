@@ -76,6 +76,10 @@ struct Opt {
 
     #[clap(long, env = "RUST_LOG", default_value = "debug")]
     log_level: String,
+
+    /// The maximum age of mailbox entries in seconds.
+    #[clap(long, env = "OF_MAILBOX_MAX_AGE", default_value = "604800")]
+    mailbox_max_age: u64,
 }
 
 #[tokio::main]
@@ -88,7 +92,7 @@ async fn main() {
 
     let store: SharedStore = Arc::new(Mutex::new(Store::default()));
 
-    cleanup::start_task(&store);
+    cleanup::start_task(&store, &opt);
 
     let cors = CorsLayer::new()
         .allow_methods(cors::Any)
