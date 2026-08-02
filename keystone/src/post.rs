@@ -1,9 +1,4 @@
-use crate::{PublicKeySealed, Signable};
-use crate::crypto::{self};
-use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::media::Media;
-use crate::signing::Signature;
-use onlyfriends_time::seconds_since_epoch;
 use serde::{Deserialize, Serialize};
 
 /// The content of a post
@@ -24,4 +19,3 @@ impl PostContent {
         }
     }
 }
-
