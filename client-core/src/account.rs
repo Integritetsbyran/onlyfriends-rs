@@ -153,19 +153,19 @@ impl Account {
         // user has any friends yet.
         let mut recipients_with_self = recipients.clone();
         recipients_with_self.push(self.identity.public());
-        let posts = keystone::Envelope::seal_envelope(
+        let envelopes = keystone::Envelope::seal_envelope(
             &self.identity,
             &Message::Post(post.clone()),
             &recipients_with_self,
         );
 
-        let post_id = posts.first().map(|p| p.post.id);
-        if let Some(first) = posts.first() {
-            self.store().await.save_post(&first.post, post).await?;
+        let post_id = envelopes.first().map(|p| p.letter.id);
+        if let Some(first) = envelopes.first() {
+            self.store().await.save_post(&first.letter, post).await?;
         }
 
         // Send only to actual friends; the trailing self-sealed post is unused.
-        for (friend, envelope) in friends.iter().zip(posts.iter()) {
+        for (friend, envelope) in friends.iter().zip(envelopes.iter()) {
             let epoch = days_since_epoch();
             let addr = mailbox_address(
                 &friend.pairwise_root,
@@ -210,7 +210,7 @@ impl Account {
 
                 match letter {
                     Message::Post(post) => {
-                        if self.store().await.save_post(&envelope.post, &post).await? {
+                        if self.store().await?.save_post(&envelope.letter, &post).await? {
                             sync_results.new_posts.push(post);
                         }
                     }
