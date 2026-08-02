@@ -156,5 +156,5 @@ jobs:
         run: |
           for b in bundles/*.flatpak; do
             echo "pushing $b"
-            curl -v -XPOST -T "$b" "https://$FLATPAK_REPO_URL/flatpak-bundle/upload?key=$FLATPAK_REPO_API_KEY"
+            curl -v -XPOST -T "$b" "https://$FLATPAK_REPO_HOST/flatpak-bundle/upload?key=$FLATPAK_REPO_API_KEY"
           done
