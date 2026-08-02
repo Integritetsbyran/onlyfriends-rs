@@ -6,10 +6,17 @@ use crate::{
     signing::Signature,
 };
 
+/// All kinds of post responses.
+///
+/// # Compatibility
+/// The postcard wire format is stable, and describes tagged unions (enums) with a `varint(u32)` discriminant.
+/// To maintain cross-compatibility between versions, we explicitly set the discriminant for each variant.
+/// A discriminant should never be re-used, therefore removing variants is discauraged.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(u32)] // postcard uses u32 to tag enums
 pub enum ResponseBody {
-    Comment { text: String },
-    Reaction { emoji: String },
+    Comment { text: String } = 0,
+    Reaction { emoji: String } = 1,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
