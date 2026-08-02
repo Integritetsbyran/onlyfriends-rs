@@ -1,5 +1,5 @@
 use crate::Signable;
-use crate::crypto::{self, SealedBox};
+use crate::crypto::{self, PublicKeySealed};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::message::Message;
 use crate::signing::Signature;
@@ -37,7 +37,7 @@ pub struct Letter {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Envelope {
     pub post: Letter,
-    pub sealed_content_key: SealedBox,
+    pub sealed_content_key: PublicKeySealed,
 }
 
 impl Envelope {
@@ -47,7 +47,7 @@ impl Envelope {
         author_pub: &PublicIdentity,
     ) -> crate::Result<Message> {
         //TODO: Why is env not self??
-        let content_key = SealedBox::open(&recipient.dh_secret(), &self.sealed_content_key)?;
+        let content_key = PublicKeySealed::open(&recipient.dh_secret(), &self.sealed_content_key)?;
 
         let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
         let sig = ed25519_dalek::Signature::from(self.post.sig);
@@ -89,7 +89,7 @@ impl Envelope {
 
         let mut envelopes: Vec<Envelope> = vec![];
         for r in recipients.iter() {
-            let sealed = SealedBox::seal(&r.dh_pub, &content_key);
+            let sealed = PublicKeySealed::seal(&r.dh_pub, &content_key);
             envelopes.push(Envelope {
                 post: post.clone(),
                 sealed_content_key: sealed,

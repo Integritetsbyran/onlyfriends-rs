@@ -28,7 +28,7 @@ impl From<postcard::Error> for crate::Error {
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-pub use crypto::SealedBox;
+pub use crypto::PublicKeySealed;
 pub use envelope::Envelope;
 pub use envelope::Letter;
 pub use friend::Friend;
