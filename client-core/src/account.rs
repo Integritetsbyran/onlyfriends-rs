@@ -1,15 +1,14 @@
-use onlyfriends_time::days_since_epoch;
-use std::sync::Arc;
-use storage_common::storage::Storage;
-use storage_common::types::{relay_config::RelayConfig, stored_response::ResponseKind};
-use tokio::sync::{Mutex, MutexGuard};
 use keystone::Envelope;
 use keystone::envelope::LetterId;
 use keystone::identity::SigningPublicKey;
 use keystone::message::Message;
 use keystone::post::PostContent;
+use onlyfriends_time::days_since_epoch;
+use storage_common::storage::Storage;
+use storage_common::types::{relay_config::RelayConfig, stored_response::ResponseKind};
+use tokio::sync::{Mutex, MutexGuard};
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::{ClientError, RelayClient, mailbox_address, my_direction};
 
@@ -202,15 +201,18 @@ impl Account {
                     continue;
                 };
 
-                let Ok(letter) =
-                    envelope.open_envelope(&self.identity, &friend.public)
-                else {
-                    continue
+                let Ok(letter) = envelope.open_envelope(&self.identity, &friend.public) else {
+                    continue;
                 };
 
                 match letter {
                     Message::Post(post) => {
-                        if self.store().await?.save_post(&envelope.letter, &post).await? {
+                        if self
+                            .store()
+                            .await
+                            .save_post(&envelope.letter, &post)
+                            .await?
+                        {
                             sync_results.new_posts.push(post);
                         }
                     }

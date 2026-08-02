@@ -484,7 +484,10 @@ impl Storage for SqliteStorage {
         Ok(self.save_response_inner(letter_id, response)?)
     }
 
-    async fn load_responses_for(&mut self, letter_id: &LetterId) -> StorageResult<Vec<StoredResponse>> {
+    async fn load_responses_for(
+        &mut self,
+        letter_id: &LetterId,
+    ) -> StorageResult<Vec<StoredResponse>> {
         Ok(self.load_responses_for_inner(letter_id)?)
     }
 

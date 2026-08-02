@@ -68,7 +68,10 @@ pub trait Storage: Send {
     ) -> StorageResult<bool>;
 
     /// Load all responses for a specific letter from storage, returns an empty vector if no responses are found.
-    async fn load_responses_for(&mut self, letter_id: &LetterId) -> StorageResult<Vec<StoredResponse>>;
+    async fn load_responses_for(
+        &mut self,
+        letter_id: &LetterId,
+    ) -> StorageResult<Vec<StoredResponse>>;
 
     /// Get the last index of a post for a specific friend, direction and epoch. Returns the last index.
     async fn get_cursor(

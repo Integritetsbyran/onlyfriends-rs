@@ -109,13 +109,7 @@ impl Signable for Letter {
             sig: _, /*signature should not containt itself*/
         } = &self;
 
-        postcard::to_allocvec(&(
-            id,
-            author,
-            created_at,
-            &content_ct,
-            content_nonce,
-        ))
-        .expect("serializes")
+        postcard::to_allocvec(&(id, author, created_at, &content_ct, content_nonce))
+            .expect("serializes")
     }
 }
