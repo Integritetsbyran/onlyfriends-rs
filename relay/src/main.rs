@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use axum::{
@@ -20,11 +21,17 @@ use tracing_subscriber::EnvFilter;
 
 use crate::postcard::{Postcard, PostcardRaw};
 
+pub mod cleanup;
 pub mod postcard;
+
+struct MailboxEntry {
+    pub uploaded_at: Instant,
+    pub blob: Vec<u8>,
+}
 
 #[derive(Default)]
 struct Store {
-    mailboxes: HashMap<String, Vec<Vec<u8>>>,
+    mailboxes: HashMap<String, Vec<MailboxEntry>>,
 }
 
 type SharedStore = Arc<Mutex<Store>>;
@@ -35,7 +42,11 @@ async fn post_mailbox(
     PostcardRaw(bytes): PostcardRaw,
 ) -> Result<(), StatusCode> {
     let mut store = store.lock().unwrap();
-    store.mailboxes.entry(addr).or_default().push(bytes.into());
+    let entry = MailboxEntry {
+        uploaded_at: Instant::now(),
+        blob: bytes.into(),
+    };
+    store.mailboxes.entry(addr).or_default().push(entry);
     Ok(())
 }
 
@@ -51,9 +62,10 @@ async fn get_mailbox(
     Query(q): Query<AfterQuery>,
 ) -> Postcard<Vec<Vec<u8>>> {
     let store = store.lock().unwrap();
-    let items = store.mailboxes.get(&addr).map(Vec::as_slice).unwrap_or(&[]);
-    let items = items.get(q.after..).unwrap_or(&[]);
-    Postcard(items.to_vec())
+    let entries = store.mailboxes.get(&addr).map(Vec::as_slice).unwrap_or(&[]);
+    let entries = entries.get(q.after..).unwrap_or(&[]);
+    let blobs = entries.iter().map(|entry| entry.blob.clone()).collect();
+    Postcard(blobs)
 }
 
 #[derive(Parser)]
@@ -75,6 +87,8 @@ async fn main() {
         .init();
 
     let store: SharedStore = Arc::new(Mutex::new(Store::default()));
+
+    cleanup::start_task(&store);
 
     let cors = CorsLayer::new()
         .allow_methods(cors::Any)
