@@ -36,6 +36,7 @@ impl WebStorage {
         let db = Database::builder(db_name)
             .version(1)
             .add_model::<WebIdentity>()
+            .add_model::<WebRelayConfig>()
             .add_model::<WebFriend>()
             .add_model::<WebProfile>()
             .add_model::<WebPost>()
