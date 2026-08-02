@@ -34,6 +34,6 @@ fn stranger_and_tampering_are_rejected() {
             .open_envelope(&mallory, &alice.public())
             .is_err()
     ); // not a recipient
-    envelopes[0].post.content_ct[0] ^= 0xff;
+    envelopes[0].letter.content_ct[0] ^= 0xff;
     assert!(envelopes[0].open_envelope(&bob, &alice.public()).is_err()); // tampered
 }

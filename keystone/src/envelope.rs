@@ -36,7 +36,7 @@ pub struct Letter {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Envelope {
-    pub post: Letter,
+    pub letter: Letter,
     pub sealed_content_key: PublicKeySealed,
 }
 
@@ -50,15 +50,15 @@ impl Envelope {
         let content_key = PublicKeySealed::open(&recipient.dh_secret(), &self.sealed_content_key)?;
 
         let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
-        let sig = ed25519_dalek::Signature::from(self.post.sig);
-        vk.verify_strict(&self.post.signing_bytes(), &sig)
+        let sig = ed25519_dalek::Signature::from(self.letter.sig);
+        vk.verify_strict(&self.letter.signing_bytes(), &sig)
             .map_err(|_| crate::Error::Signature)?;
 
         let key: [u8; 32] = content_key
             .as_slice()
             .try_into()
             .map_err(|_| crate::Error::BadKey)?;
-        let post = crypto::aead_decrypt(&key, &self.post.content_nonce, &self.post.content_ct)?;
+        let post = crypto::aead_decrypt(&key, &self.letter.content_nonce, &self.letter.content_ct)?;
 
         postcard::from_bytes(&post).map_err(|_| crate::Error::Serialize)
     }
@@ -77,7 +77,7 @@ impl Envelope {
             .unwrap()
             .as_secs();
 
-        let mut post = Letter {
+        let mut letter = Letter {
             id: LetterId::random(),
             author: author.public().sign_pub,
             created_at,
@@ -85,13 +85,13 @@ impl Envelope {
             content_nonce: body_nonce,
             sig: Signature::invalid(),
         };
-        post.sig = post.sign_with(&author.signing_key());
+        letter.sig = letter.sign_with(&author.signing_key());
 
         let mut envelopes: Vec<Envelope> = vec![];
         for r in recipients.iter() {
             let sealed = PublicKeySealed::seal(&r.dh_pub, &content_key);
             envelopes.push(Envelope {
-                post: post.clone(),
+                letter: letter.clone(),
                 sealed_content_key: sealed,
             });
         }
