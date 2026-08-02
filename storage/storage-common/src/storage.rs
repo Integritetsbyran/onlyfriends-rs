@@ -1,8 +1,4 @@
-use keystone::{
-    identity::SigningPublicKey,
-    post::{PostContent},
-    envelope::LetterId,
-};
+use keystone::{envelope::LetterId, identity::SigningPublicKey, post::PostContent};
 
 use crate::types::{stored_post::StoredPost, stored_response::StoredResponse};
 
@@ -55,8 +51,11 @@ pub trait Storage: Send {
     fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>>;
 
     /// Save a response to storage, returns true if the response was "new" and had not been saved before.
-    fn save_response(&mut self, letter_id: &LetterId, response: &StoredResponse)
-    -> StorageResult<bool>;
+    fn save_response(
+        &mut self,
+        letter_id: &LetterId,
+        response: &StoredResponse,
+    ) -> StorageResult<bool>;
 
     /// Load all responses for a specific letter from storage, returns an empty vector if no responses are found.
     fn load_responses_for(&mut self, letter_id: &LetterId) -> StorageResult<Vec<StoredResponse>>;
