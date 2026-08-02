@@ -46,9 +46,7 @@ impl Envelope {
         recipient: &Identity,
         author_pub: &PublicIdentity,
     ) -> crate::Result<Message> {
-        //TODO: Why is env not self??
         let content_key = PublicKeySealed::open(&recipient.dh_secret(), &self.sealed_content_key)?;
-
         let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
         let sig = ed25519_dalek::Signature::from(self.letter.sig);
         vk.verify_strict(&self.letter.signing_bytes(), &sig)

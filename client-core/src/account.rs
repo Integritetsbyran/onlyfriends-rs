@@ -182,7 +182,6 @@ impl Account {
                     continue;
                 };
 
-                //TODO: Rename
                 let Ok(letter) = envelope.open_envelope(&self.identity, &friend.public) else {
                     continue;
                 };
