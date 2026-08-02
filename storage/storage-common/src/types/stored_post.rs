@@ -1,4 +1,4 @@
-use keystone::{identity::SigningPublicKey, media::Media, envelope::LetterId};
+use keystone::{envelope::LetterId, identity::SigningPublicKey, media::Media};
 
 pub struct StoredPost {
     pub id: LetterId,

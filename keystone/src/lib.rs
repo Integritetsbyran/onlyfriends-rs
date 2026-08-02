@@ -4,13 +4,13 @@ pub mod friend;
 pub mod identity;
 pub mod labels;
 pub mod media;
+pub mod message;
 pub mod post;
 pub mod profile;
 pub mod response;
 pub mod signable;
 pub mod signing;
 pub mod util;
-pub mod message;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -30,9 +30,9 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 pub use crypto::SealedBox;
 pub use envelope::Envelope;
+pub use envelope::Letter;
 pub use friend::Friend;
 pub use identity::{Identity, PublicIdentity};
 pub use profile::Profile;
 pub use response::ResponseBody;
 pub use signable::Signable;
-pub use envelope::Letter;

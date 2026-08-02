@@ -4,10 +4,10 @@ use storage_common::storage::Storage;
 use storage_common::types::{relay_config::RelayConfig, stored_response::ResponseKind};
 use tokio::sync::{Mutex, MutexGuard};
 use keystone::Envelope;
+use keystone::envelope::LetterId;
 use keystone::identity::SigningPublicKey;
 use keystone::message::Message;
 use keystone::post::PostContent;
-use keystone::envelope::LetterId;
 
 use std::sync::{Arc, Mutex};
 
@@ -153,7 +153,11 @@ impl Account {
         // user has any friends yet.
         let mut recipients_with_self = recipients.clone();
         recipients_with_self.push(self.identity.public());
-        let posts = keystone::Envelope::seal_envelope(&self.identity, &Message::Post(post.clone()), &recipients_with_self);
+        let posts = keystone::Envelope::seal_envelope(
+            &self.identity,
+            &Message::Post(post.clone()),
+            &recipients_with_self,
+        );
 
         let post_id = posts.first().map(|p| p.post.id);
         if let Some(first) = posts.first() {
@@ -236,7 +240,7 @@ impl Account {
                             let envelopes = Envelope::seal_envelope(
                                 &self.identity,
                                 &Message::Rebroadcast(rb.clone()),
-                                &[f.public.clone()]
+                                &[f.public.clone()],
                             );
                             if let Some(envelope) = envelopes.into_iter().next() {
                                 self.post_envelope(&f, envelope).await?;
@@ -324,7 +328,7 @@ impl Account {
         let envelopes = Envelope::seal_envelope(
             &self.identity,
             &Message::Profile(profile),
-            &[friend.public.clone()]
+            &[friend.public.clone()],
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
 
@@ -357,7 +361,7 @@ impl Account {
         let envelopes = Envelope::seal_envelope(
             &self.identity,
             &Message::Response(inner),
-            &[owner.public.clone()]
+            &[owner.public.clone()],
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
         self.post_envelope(&owner, envelope).await

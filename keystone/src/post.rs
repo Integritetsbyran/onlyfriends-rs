@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::media::Media;
 
-
 /// The content of a post
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PostContent {
@@ -18,7 +17,6 @@ pub struct PostContent {
     /// Attached pictures and videos.
     pub media: Vec<Media>,
 }
-
 
 impl PostContent {
     pub fn from_body(body: impl Into<String>) -> Self {

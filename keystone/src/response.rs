@@ -2,7 +2,8 @@ use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Identity, SealedBox, Signable, envelope::LetterId, identity::SigningPublicKey, signing::Signature
+    Identity, SealedBox, Signable, envelope::LetterId, identity::SigningPublicKey,
+    signing::Signature,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -40,7 +41,11 @@ pub struct ResponseRebroadcast {
     pub vouch_sig: Signature,
 }
 
-pub fn create_response(responder: &Identity, letter_id: LetterId, body: ResponseBody) -> ResponseInner {
+pub fn create_response(
+    responder: &Identity,
+    letter_id: LetterId,
+    body: ResponseBody,
+) -> ResponseInner {
     let mut response_inner = ResponseInner {
         letter_id,
         author: responder.public().sign_pub,

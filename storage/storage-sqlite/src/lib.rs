@@ -1,7 +1,11 @@
 use std::{path::Path, str::FromStr};
 
 use keystone::{
-    Identity, envelope::{Letter, LetterId}, identity::{MasterSeed, SigningPublicKey}, media::Media, post::PostContent
+    Identity,
+    envelope::{Letter, LetterId},
+    identity::{MasterSeed, SigningPublicKey},
+    media::Media,
+    post::PostContent,
 };
 use mime::Mime;
 use storage_common::{

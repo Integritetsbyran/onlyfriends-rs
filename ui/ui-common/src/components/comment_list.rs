@@ -1,7 +1,7 @@
 use crate::context;
 use dioxus::prelude::*;
-use keystone::identity::SigningPublicKey;
 use keystone::envelope::LetterId;
+use keystone::identity::SigningPublicKey;
 
 /// Expandable comment thread under a post.
 #[component]
