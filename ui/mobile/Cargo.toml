@@ -4,19 +4,28 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dioxus = { workspace = true, features = ["router"] }
+# Core Dioxus - mobile feature is required for WebView
+dioxus = { version = "0.7", features = ["mobile"] }
+dioxus-router = "0.7"
+
+# Platform-specific renderers
+dioxus-native = { git = "https://github.com/DioxusLabs/blitz", features = ["prelude"], optional = true }
+
+# Shared UI and storage
 ui = { workspace = true }
 client-core = { workspace = true }
 storage-sqlite = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 
-# Used by `src/config.rs` to find a writable per-app data directory via
-# `Context.getFilesDir()` — see the doc comment there.
-[target.'cfg(target_os = "android")'.dependencies]
-jni = "0.21"
-ndk-context = "0.1"
-
 [features]
-default = ["mobile"]
-mobile = ["dioxus/mobile"]
+# Default to web renderer (WebView) which supports CSS env() for safe areas
+default = ["web"]
 
+# Use WebView-based rendering (WKWebView on iOS, WebView on Android)
+web = []
+
+# Use native Blitz renderer (experimental, no safe area support yet)
+native = ["dioxus-native"]
+
+# Legacy feature flag
+mobile = []

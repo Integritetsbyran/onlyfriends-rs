@@ -1,5 +1,7 @@
 use client_core::account::Store;
 use dioxus::prelude::*;
+use dioxus_router::hooks::use_navigator;
+use dioxus_router::{Link, Outlet, Routable, Router};
 use std::sync::{Arc, Mutex};
 
 use storage_sqlite::SqliteStorage;
@@ -35,7 +37,84 @@ enum Route {
 }
 
 fn main() {
-    dioxus::launch(App);
+    #[cfg(feature = "native")]
+    {
+        use dioxus_native::prelude::*;
+        // Use Blitz native renderer (experimental)
+        // NOTE: Does not support iOS safe areas yet
+        dioxus_native::launch(App);
+    }
+    
+    #[cfg(not(feature = "native"))]
+    {
+        // Use WebView renderer (default)
+        // Supports CSS env() for safe areas on iOS/Android
+        dioxus::launch(App);
+    }
+}
+
+/// Android native entrypoint used by `android-activity`.
+#[cfg(target_os = "android")]
+#[cfg(not(feature = "native"))]
+#[unsafe(no_mangle)]
+pub fn android_main(android_app: dioxus::mobile::wry::AndroidApp) {
+    use dioxus::mobile::wry::prelude::*;
+    use dioxus::mobile::Config;
+    
+    const BACKGROUND_COLOR: (u8, u8, u8, u8) = (18, 18, 18, 255);
+    
+    let config = Config::new()
+        .with_background_color(BACKGROUND_COLOR)
+        .with_on_window(|_window, _| {
+            dispatch(|env, activity, _webview| {
+                let window = env
+                    .call_method(activity, "getWindow", "()Landroid/view/Window;", &[])
+                    .unwrap()
+                    .l()
+                    .unwrap();
+
+                let decor_view = env
+                    .call_method(&window, "getDecorView", "()Landroid/view/View;", &[])
+                    .unwrap()
+                    .l()
+                    .unwrap();
+
+                // Draw UNDER the status bar (edge-to-edge)
+                const LAYOUT_STABLE: i32 = 1 << 8;
+                const LAYOUT_HIDE_NAVIGATION: i32 = 1 << 9;
+                const LAYOUT_FULLSCREEN: i32 = 1 << 10;
+                const VISIBILITY_FLAG: i32 =
+                    LAYOUT_STABLE | LAYOUT_FULLSCREEN | LAYOUT_HIDE_NAVIGATION;
+
+                env.call_method(
+                    decor_view,
+                    "setSystemUiVisibility",
+                    "(I)V",
+                    &[VISIBILITY_FLAG.into()],
+                )
+                .unwrap();
+
+                // Make the status bars transparent
+                const TRANSPARENT_COLOR: i32 = 0;
+                env.call_method(
+                    &window,
+                    "setStatusBarColor",
+                    "(I)V",
+                    &[TRANSPARENT_COLOR.into()],
+                )
+                .unwrap();
+
+                env.call_method(
+                    &window,
+                    "setNavigationBarColor",
+                    "(I)V",
+                    &[TRANSPARENT_COLOR.into()],
+                )
+                .unwrap();
+            });
+        });
+
+    dioxus::mobile::launch_cfg(App, config);
 }
 
 /// Root component — provides the account context for the entire tree.
@@ -45,6 +124,11 @@ fn App() -> Element {
     use_context_provider(|| Signal::new(None::<context::ModalContent>));
 
     rsx! {
+        // Enable edge-to-edge layout with safe area support for iOS
+        document::Meta {
+            name: "viewport",
+            content: "width=device-width, initial-scale=1.0, viewport-fit=cover"
+        }
         document::Stylesheet { href: APP_CSS }
         Router::<Route> {}
     }

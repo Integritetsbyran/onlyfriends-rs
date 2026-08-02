@@ -4722,8 +4722,8 @@ version = "0.1.0"
 dependencies = [
  "client-core",
  "dioxus",
- "jni 0.21.1",
- "ndk-context",
+ "dioxus-native",
+ "dioxus-router",
  "storage-sqlite",
  "tokio",
  "ui",

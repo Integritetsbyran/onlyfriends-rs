@@ -54,3 +54,17 @@ algorithm, no strangers.
 schemes = ["onlyfriends"]
 hosts = ["of.integritetsbyran.org"]
 paths = ["/add/*"]
+
+[ios]
+# iOS-specific configuration
+[ios.plist]
+# Status bar configuration for edge-to-edge rendering
+UIViewControllerBasedStatusBarAppearance = false
+UIStatusBarHidden = false
+UIStatusBarStyle = "UIStatusBarStyleLightContent"
+
+[android]
+# Android-specific configuration for edge-to-edge
+[android.application]
+# Use NoActionBar theme to enable edge-to-edge
+theme = "@style/Theme.AppCompat.NoActionBar"

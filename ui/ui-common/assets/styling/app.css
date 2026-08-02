@@ -9,6 +9,14 @@
     padding: 0;
 }
 
+/* Define CSS variables for safe areas */
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+}
+
 html, body {
     height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -16,41 +24,63 @@ html, body {
     background: #121212;
     color: #e0e0e0;
     line-height: 1.5;
+    /* Prevent any white background from showing */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 /* ---------- Layout ---------- */
 .app-root {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    /* Use dvh (dynamic viewport height) for better mobile support, fallback to vh */
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #121212;
 }
 
 /* ---------- Top navigation ---------- */
 .top-nav {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0 16px;
-    height: 48px;
+    gap: 6px;
+    /* Add safe area padding so navbar content doesn't go under Dynamic Island */
+    padding: 8px 12px;
+    padding-top: max(8px, var(--safe-top));
+    min-height: 48px;
     background: #1a1a1a;
     border-bottom: 1px solid #2e2e2e;
     flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.top-nav::-webkit-scrollbar {
+    display: none;
 }
 
 .top-nav .app-title {
     font-weight: 700;
     font-size: 16px;
     color: #7c6af7;
-    margin-right: 16px;
+    margin-right: 10px;
+    line-height: 1.1;
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 .nav-tab {
     padding: 6px 14px;
     border-radius: 6px;
     font-size: 14px;
+    line-height: 1.1;
     font-weight: 500;
     color: #888;
     text-decoration: none;
+    white-space: nowrap;
+    flex: 0 0 auto;
     transition: background 0.15s, color 0.15s;
 }
 
@@ -68,7 +98,9 @@ html, body {
 .page {
     flex: 1;
     overflow-y: auto;
+    /* Add safe area padding for bottom home indicator */
     padding: 24px;
+    padding-bottom: max(24px, var(--safe-bottom));
     max-width: 680px;
     width: 100%;
     margin: 0 auto;
@@ -232,6 +264,7 @@ textarea.input {
   flex-direction: column;
   align-items: center;
   padding-top: 4rem;
+  padding-bottom: 24px;
   background: #0005;
   z-index: 99;
 
@@ -276,8 +309,13 @@ textarea.input {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Use dvh for better mobile support */
     min-height: 100vh;
+    min-height: 100dvh;
+    /* Add safe area padding */
     padding: 24px;
+    padding-top: max(24px, var(--safe-top));
+    padding-bottom: max(24px, var(--safe-bottom));
     background: #121212;
 }
 
@@ -571,7 +609,9 @@ textarea.input {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Use dvh for better mobile support */
     height: 100vh;
+    height: 100dvh;
     color: #444;
     font-size: 14px;
 }
