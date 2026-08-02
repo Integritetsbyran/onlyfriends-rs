@@ -1,7 +1,4 @@
-use keystone::{
-    identity::SigningPublicKey,
-    post::{PostContent, PostId},
-};
+use keystone::{envelope::LetterId, identity::SigningPublicKey, post::PostContent};
 
 use crate::types::{
     relay_config::RelayConfig, stored_post::StoredPost, stored_response::StoredResponse,
@@ -56,7 +53,7 @@ pub trait Storage: Send {
     /// Save a post to storage, returns true if the post was "new" and had not been saved before.
     async fn save_post(
         &mut self,
-        encrypted: &keystone::EncryptedPost,
+        encrypted: &keystone::Letter,
         post: &PostContent,
     ) -> StorageResult<bool>;
 
@@ -66,12 +63,15 @@ pub trait Storage: Send {
     /// Save a response to storage, returns true if the response was "new" and had not been saved before.
     async fn save_response(
         &mut self,
-        post_id: &PostId,
+        letter_id: &LetterId,
         response: &StoredResponse,
     ) -> StorageResult<bool>;
 
-    /// Load all responses for a specific post from storage, returns an empty vector if no responses are found.
-    async fn load_responses_for(&mut self, post_id: &PostId) -> StorageResult<Vec<StoredResponse>>;
+    /// Load all responses for a specific letter from storage, returns an empty vector if no responses are found.
+    async fn load_responses_for(
+        &mut self,
+        letter_id: &LetterId,
+    ) -> StorageResult<Vec<StoredResponse>>;
 
     /// Get the last index of a post for a specific friend, direction and epoch. Returns the last index.
     async fn get_cursor(

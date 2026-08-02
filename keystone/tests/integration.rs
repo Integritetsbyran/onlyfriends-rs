@@ -1,4 +1,4 @@
-use keystone::{post::PostContent, *};
+use keystone::{Envelope, message::Message, post::PostContent, *};
 
 #[test]
 fn alice_posts_bob_reads() {
@@ -13,8 +13,10 @@ fn alice_posts_bob_reads() {
     assert_eq!(a.pairwise_root, b.pairwise_root);
 
     let post = PostContent::from_body("Hello bob 📸");
-    let envelopes = post::seal_post(&alice, &post, &[bob_id]);
-    let post = post::open_post(&bob, &alice_id, &envelopes[0]).unwrap();
+    let envelopes = Envelope::seal_envelope(&alice, &Message::Post(post), &[bob_id]);
+    let Message::Post(post) = envelopes[0].open_envelope(&bob, &alice_id).unwrap() else {
+        panic!("expected Post");
+    };
 
     assert_eq!(post.body, "Hello bob 📸")
 }
@@ -26,8 +28,12 @@ fn stranger_and_tampering_are_rejected() {
     let mallory = Identity::generate();
 
     let post = PostContent::from_body("secret");
-    let mut envelopes = post::seal_post(&alice, &post, &[bob.public()]);
-    assert!(post::open_post(&mallory, &alice.public(), &envelopes[0]).is_err()); // not a recipient
-    envelopes[0].post.content_ct[0] ^= 0xff;
-    assert!(post::open_post(&bob, &alice.public(), &envelopes[0]).is_err()); // tampered
+    let mut envelopes = Envelope::seal_envelope(&alice, &Message::Post(post), &[bob.public()]);
+    assert!(
+        envelopes[0]
+            .open_envelope(&mallory, &alice.public())
+            .is_err()
+    ); // not a recipient
+    envelopes[0].letter.content_ct[0] ^= 0xff;
+    assert!(envelopes[0].open_envelope(&bob, &alice.public()).is_err()); // tampered
 }
