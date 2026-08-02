@@ -1,5 +1,5 @@
 # Workflow for releasing the desktop app. It is triggered by pushing a signed `desktop/vX.Y.Z` tag,
-# pointing to a signed commit. Trusted public keys are specified in github secrets.
+# pointing to a signed commit. Trusted public keys are specified in github vars.
 #
 # The workflow does the following:
 # - Verifies that tags and commits are signed.
@@ -37,7 +37,7 @@ jobs:
 
       - name: Import trusted GPG keys
         env:
-          GPG_PUBLIC_KEYRING: ${{ secrets.GPG_PUBLIC_KEYRING }}
+          GPG_PUBLIC_KEYRING: ${{ vars.GPG_PUBLIC_KEYRING }}
         run: |
           # Create an isolated GPG home directory and import trusted keys
           export GNUPGHOME=$(mktemp -d)
@@ -151,10 +151,10 @@ jobs:
 
       - name: Push to flatpak repository
         env:
-          FLATPAK_REPO_URL: ${{ secrets.FLATPAK_REPO_URL }}
+          FLATPAK_REPO_HOST: ${{ vars.FLATPAK_REPO_HOST }}
           FLATPAK_REPO_API_KEY: ${{ secrets.FLATPAK_REPO_API_KEY }}
         run: |
           for b in bundles/*.flatpak; do
             echo "pushing $b"
-            curl -v -XPOST -T "$b" "$FLATPAK_REPO_URL/flatpak-bundle/upload?key=$FLATPAK_REPO_API_KEY"
+            curl -v -XPOST -T "$b" "https://$FLATPAK_REPO_URL/flatpak-bundle/upload?key=$FLATPAK_REPO_API_KEY"
           done
