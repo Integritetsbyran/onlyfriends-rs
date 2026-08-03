@@ -16,7 +16,7 @@ pub struct WebPost {
 impl WebPost {
     pub fn new(encrypted: keystone::Letter, post: PostContent) -> Self {
         Self {
-            post_id: encrypted.id,
+            post_id: encrypted.id(),
             author: encrypted.author,
             body: post.body,
             created_at: encrypted.created_at,

@@ -3,30 +3,25 @@ use crate::crypto::{self, PublicKeySealed};
 use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
 use crate::message::Message;
 use crate::signing::Signature;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct LetterId([u8; 16]);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LetterId([u8; 64]);
 
 impl LetterId {
-    pub fn random() -> Self {
-        Self(crypto::random_bytes())
-    }
-
-    pub fn to_byte_slice(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl From<[u8; 16]> for LetterId {
-    fn from(bytes: [u8; 16]) -> Self {
+impl From<[u8; 64]> for LetterId {
+    fn from(bytes: [u8; 64]) -> Self {
         Self(bytes)
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Letter {
-    pub id: LetterId,
     pub author: SigningPublicKey,
     pub created_at: u64,
     pub content_ct: Vec<u8>,
@@ -49,8 +44,7 @@ impl Envelope {
         let content_key = PublicKeySealed::open(&recipient.dh_secret(), &self.sealed_content_key)?;
         let vk = ed25519_dalek::VerifyingKey::try_from(&author_pub.sign_pub)?;
         let sig = ed25519_dalek::Signature::from(self.letter.sig);
-        vk.verify_strict(&self.letter.signing_bytes(), &sig)
-            .map_err(|_| crate::Error::Signature)?;
+        self.letter.verify_signature(&vk, &sig)?;
 
         let key: [u8; 32] = content_key
             .as_slice()
@@ -76,7 +70,6 @@ impl Envelope {
             .as_secs();
 
         let mut letter = Letter {
-            id: LetterId::random(),
             author: author.public().sign_pub,
             created_at,
             content_ct: body_ct,
@@ -98,10 +91,16 @@ impl Envelope {
     }
 }
 
+impl Letter {
+    /// Calculate the [`LetterId`] by hashing `self`.
+    pub fn id(&self) -> LetterId {
+        LetterId(self.signing_hash_bytes())
+    }
+}
+
 impl Signable for Letter {
     fn signing_bytes(&self) -> Vec<u8> {
         let Self {
-            id,
             author,
             created_at,
             content_ct,
@@ -109,7 +108,30 @@ impl Signable for Letter {
             sig: _, /*signature should not containt itself*/
         } = &self;
 
-        postcard::to_allocvec(&(id, author, created_at, &content_ct, content_nonce))
+        postcard::to_allocvec(&(author, created_at, &content_ct, content_nonce))
             .expect("serializes")
+    }
+}
+
+impl Serialize for LetterId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_bytes().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for LetterId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // Using Vec instead of &[u8] here because serde_wasm_bindgen's deserializer doesn't support &[u8] and will fail to deserialize it (not entirely clear why).
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        let expected_len = "64"; // sha512 hashes are 64 bytes
+        Ok(LetterId(bytes.as_slice().try_into().map_err(|_| {
+            D::Error::invalid_length(bytes.len(), &expected_len)
+        })?))
     }
 }
