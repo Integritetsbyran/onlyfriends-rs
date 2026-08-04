@@ -3,7 +3,7 @@ name = "onlyfriends-desktop"
 version = "0.3.0"
 edition = "2024"
 
-[dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 dioxus-native = { workspace = true, features = ["prelude"] }
 dioxus-router.workspace = true
 dioxus = { workspace = true, features = ["hooks", "macro"] }
@@ -20,6 +20,3 @@ winit-wayland.workspace = true
 xdg.workspace = true
 
 [features]
-# default = ["desktop"]
-# desktop = ["dioxus/desktop"]
-
