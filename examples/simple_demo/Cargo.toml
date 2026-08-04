@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-[dependencies]
+# Native-only example (uses SQLite + tokio "full"): dependencies are gated to
+# non-wasm targets so project-wide wasm builds compile it as an empty binary.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 client-core = { workspace = true }
 storage-sqlite = { workspace = true }
 keystone = { workspace = true }
