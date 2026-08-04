@@ -10,6 +10,8 @@ use x25519_dalek::PublicKey;
 
 use crate::{identity::DhPublicKey, labels};
 
+pub const CRYPTO_CTX: &[u8] = b"onlyfriends";
+
 /// N fresh random bytes from the OS CSPRNG.
 pub fn random_bytes<const N: usize>() -> [u8; N] {
     let mut out = [0u8; N];

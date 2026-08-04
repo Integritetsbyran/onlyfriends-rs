@@ -1,4 +1,3 @@
-use ed25519_dalek::Signer;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -70,16 +69,13 @@ pub fn open_and_vouch(
     let opened = PublicKeySealed::open(&owner.dh_secret(), sealed)?;
     let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
     let vk = ed25519_dalek::VerifyingKey::try_from(&response_inner.author)?;
-
     let sig = ed25519_dalek::Signature::from(response_inner.sig);
+    response_inner.verify_signature(&vk, &sig)?;
 
-    vk.verify_strict(&response_inner.signing_bytes(), &sig)
-        .map_err(|_| crate::Error::Signature)?;
-
-    let sig = owner.signing_key().sign(&response_inner.signing_bytes());
+    let vouch_sig = response_inner.sign_with(&owner.signing_key());
     Ok(ResponseRebroadcast {
         inner: response_inner,
-        vouch_sig: sig.into(),
+        vouch_sig,
     })
 }
 
@@ -93,8 +89,7 @@ pub fn open_rebroadcast(
 
     let vk = ed25519_dalek::VerifyingKey::try_from(owner)?;
     let sig = ed25519_dalek::Signature::from(rb.vouch_sig);
-    vk.verify_strict(&rb.inner.signing_bytes(), &sig)
-        .map_err(|_| crate::Error::Signature)?;
+    rb.inner.verify_signature(&vk, &sig)?;
 
     Ok(rb)
 }
@@ -124,7 +119,7 @@ mod tests {
         let carl = Identity::generate();
         let bob = Identity::generate();
 
-        let letter_id = LetterId::from([1u8; 16]);
+        let letter_id = LetterId::from([1u8; 64]);
 
         // 1. Carl builds + signs a reaction, seals it to Alice (the post owner).
         let inner = create_response(
@@ -166,7 +161,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            LetterId::from([1u8; 16]),
+            LetterId::from([1u8; 64]),
             ResponseBody::Reaction { emoji: "x".into() },
         );
         let sealed_to_alice = seal_response(&inner, &alice.public().dh_pub);
@@ -183,7 +178,7 @@ mod tests {
 
         let mut inner = create_response(
             &carl,
-            LetterId::from([1u8; 16]),
+            LetterId::from([1u8; 64]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -208,7 +203,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            LetterId::from([1u8; 16]),
+            LetterId::from([1u8; 64]),
             ResponseBody::Reaction {
                 emoji: "👍".into()
             },
@@ -232,7 +227,7 @@ mod tests {
 
         let inner = create_response(
             &carl,
-            LetterId::from([2u8; 16]),
+            LetterId::from([2u8; 64]),
             ResponseBody::Comment {
                 text: "cool comment".to_string(),
             },

@@ -139,7 +139,7 @@ impl Account {
         self.send_post(&PostContent::from_body(body)).await
     }
 
-    /// Send `post` to all friends.
+    /// Seal `post` in a `Letter` and send it to all friends.
     ///
     /// Returns the letter id, or `None` if you have no friends.
     pub async fn send_post(&mut self, post: &PostContent) -> crate::Result<Option<LetterId>> {
@@ -158,7 +158,8 @@ impl Account {
             &recipients_with_self,
         );
 
-        let post_id = envelopes.first().map(|p| p.letter.id);
+        // Calculate the letter id. The letter is the same for all envelopes.
+        let letter_id = envelopes.first().map(|p| p.letter.id());
         if let Some(first) = envelopes.first() {
             self.store().await.save_post(&first.letter, post).await?;
         }
@@ -174,7 +175,7 @@ impl Account {
 
             self.relay.post_item(&addr, &envelope).await?;
         }
-        Ok(post_id)
+        Ok(letter_id)
     }
 
     pub async fn process_mailbox(

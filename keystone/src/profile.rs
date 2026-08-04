@@ -36,14 +36,9 @@ pub fn create_profile(me: &Identity, display_name: &str, bio: &str, version: u64
     profile
 }
 
-pub fn verify_profile(p: &Profile) -> crate::Result<()> {
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(&p.owner.to_bytes())
+pub fn verify_profile(profile: &Profile) -> crate::Result<()> {
+    let vk = ed25519_dalek::VerifyingKey::from_bytes(&profile.owner.to_bytes())
         .map_err(|_| crate::Error::BadKey)?;
-
-    let sig = ed25519_dalek::Signature::from(p.sig);
-
-    vk.verify_strict(&p.signing_bytes(), &sig)
-        .map_err(|_| crate::Error::Signature)?;
-
-    Ok(())
+    let sig = ed25519_dalek::Signature::from(profile.sig);
+    profile.verify_signature(&vk, &sig)
 }

@@ -258,11 +258,12 @@ impl SqliteStorage {
     ) -> Result<bool, SqliteStorageError> {
         let transaction = self.conn.transaction()?;
 
+        let letter_id = encrypted.id();
         let rows = transaction.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                encrypted.id.to_byte_slice(),
+                letter_id.as_bytes(),
                 encrypted.author.to_byte_slice(),
                 &post.body,
                 encrypted.created_at as i64,
@@ -275,11 +276,7 @@ impl SqliteStorage {
                 transaction.execute(
                     "INSERT INTO post_media (post_id, mime, bytes)
                      VALUES (?1, ?2, ?3)",
-                    (
-                        encrypted.id.to_byte_slice(),
-                        media.mime.as_ref(),
-                        &media.bytes,
-                    ),
+                    (letter_id.as_bytes(), media.mime.as_ref(), &media.bytes),
                 )?;
             }
         }
@@ -299,7 +296,7 @@ impl SqliteStorage {
             transaction.prepare("SELECT mime, bytes FROM post_media WHERE post_id = ?1")?;
 
         let rows = select_posts.query_map([], |r| {
-            let id: [u8; 16] = r.get(0)?;
+            let id: [u8; 64] = r.get(0)?;
             let author: [u8; 32] = r.get(1)?;
 
             let post = StoredPost {
@@ -315,7 +312,7 @@ impl SqliteStorage {
         let mut posts: Vec<StoredPost> = rows.collect::<Result<_, _>>()?;
 
         for post in &mut posts {
-            let media_rows = select_media.query_map([post.id.to_byte_slice()], |r| {
+            let media_rows = select_media.query_map([post.id.as_bytes()], |r| {
                 let mime: String = r.get(0)?;
                 Ok(Media {
                     mime: Mime::from_str(&mime).unwrap(),
@@ -340,7 +337,7 @@ impl SqliteStorage {
             "INSERT OR IGNORE INTO responses (post_id, author, kind, content)
              VALUES (?1, ?2, ?3, ?4)",
             (
-                letter_id.to_byte_slice(),
+                letter_id.as_bytes(),
                 response.author.to_byte_slice(),
                 u8::from(&response.kind),
                 &response.content,
@@ -357,7 +354,7 @@ impl SqliteStorage {
             .conn
             .prepare("SELECT author, kind, content FROM responses WHERE post_id = ?1")?;
 
-        let rows = stmt.query_map([letter_id.to_byte_slice()], |r| {
+        let rows = stmt.query_map([letter_id.as_bytes()], |r| {
             let author: [u8; 32] = r.get(0)?;
             Ok(StoredResponse {
                 author: author.into(),
