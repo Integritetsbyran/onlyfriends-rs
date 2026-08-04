@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use tracing::Level;
 
-use crate::{Opt, SharedStore};
+use super::{Opt, SharedStore};
 
 /// How often to run the cleanup job.
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60 * 30); // 30 min
