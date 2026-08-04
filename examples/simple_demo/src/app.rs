@@ -1,5 +1,6 @@
 use client_core::account::SyncResult;
 use keystone::{media::Media, post::PostContent};
+use onlyfriends_time::seconds_since_epoch;
 use std::sync::Arc;
 use storage_sqlite::SqliteStorage;
 use tokio::sync::Mutex;
@@ -32,6 +33,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     alice.set_profile("Alice", "hi from alice").await?;
     let content = PostContent {
         body: "hello over the wire!".to_string(),
+        created_at: seconds_since_epoch(),
         media: vec![Media {
             mime: "image/webp".parse().unwrap(),
             bytes: include_bytes!("../../../ui/ui-common/assets/frog.webp").to_vec(),

@@ -255,20 +255,21 @@ impl SqliteStorage {
 
     fn save_post_inner(
         &mut self,
-        encrypted: &Letter,
+        author: &SigningPublicKey,
+        letter: &Letter,
         post: &PostContent,
     ) -> Result<bool, SqliteStorageError> {
         let transaction = self.conn.transaction()?;
 
-        let letter_id = encrypted.id();
+        let letter_id = letter.id();
         let rows = transaction.execute(
             "INSERT OR IGNORE INTO posts (id, author, body, created_at)
              VALUES (?1, ?2, ?3, ?4)",
             (
                 letter_id.as_bytes(),
-                encrypted.author.to_byte_slice(),
+                author.to_byte_slice(),
                 &post.body,
-                encrypted.created_at as i64,
+                &post.created_at,
             ),
         )?;
         let did_insert = rows > 0;
@@ -465,10 +466,11 @@ impl Storage for SqliteStorage {
 
     async fn save_post(
         &mut self,
-        encrypted: &keystone::Letter,
+        author: &SigningPublicKey,
+        letter: &Letter,
         post: &PostContent,
     ) -> StorageResult<bool> {
-        Ok(self.save_post_inner(encrypted, post)?)
+        Ok(self.save_post_inner(author, letter, post)?)
     }
 
     async fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {

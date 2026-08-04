@@ -1,6 +1,6 @@
 use crate::Signable;
 use crate::crypto::{self, PublicKeySealed};
-use crate::identity::{Identity, PublicIdentity, SigningPublicKey};
+use crate::identity::{Identity, PublicIdentity};
 use crate::message::Message;
 use crate::signing::Signature;
 use serde::{Deserialize, Serialize, de::Error as _};
@@ -22,8 +22,6 @@ impl From<[u8; 64]> for LetterId {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Letter {
-    pub author: SigningPublicKey,
-    pub created_at: u64,
     pub content_ct: Vec<u8>,
     pub content_nonce: [u8; 24],
     pub sig: Signature,
@@ -64,14 +62,8 @@ impl Envelope {
 
         let content_key: [u8; 32] = crypto::random_bytes();
         let (body_nonce, body_ct) = crypto::aead_encrypt(&content_key, &post);
-        let created_at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
 
         let mut letter = Letter {
-            author: author.public().sign_pub,
-            created_at,
             content_ct: body_ct,
             content_nonce: body_nonce,
             sig: Signature::invalid(),
@@ -101,15 +93,12 @@ impl Letter {
 impl Signable for Letter {
     fn signing_bytes(&self) -> Vec<u8> {
         let Self {
-            author,
-            created_at,
             content_ct,
             content_nonce,
-            sig: _, /*signature should not containt itself*/
+            sig: _, /*signature should not contain itself*/
         } = &self;
 
-        postcard::to_allocvec(&(author, created_at, &content_ct, content_nonce))
-            .expect("serializes")
+        postcard::to_allocvec(&(&content_ct, content_nonce)).expect("serializes")
     }
 }
 

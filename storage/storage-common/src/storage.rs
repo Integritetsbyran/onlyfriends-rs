@@ -53,7 +53,8 @@ pub trait Storage: Send {
     /// Save a post to storage, returns true if the post was "new" and had not been saved before.
     async fn save_post(
         &mut self,
-        encrypted: &keystone::Letter,
+        author: &SigningPublicKey,
+        letter: &keystone::Letter,
         post: &PostContent,
     ) -> StorageResult<bool>;
 

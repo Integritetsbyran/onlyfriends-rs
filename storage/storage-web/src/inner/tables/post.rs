@@ -14,12 +14,12 @@ pub struct WebPost {
 }
 
 impl WebPost {
-    pub fn new(encrypted: keystone::Letter, post: PostContent) -> Self {
+    pub fn new(&author: &SigningPublicKey, letter: keystone::Letter, post: PostContent) -> Self {
         Self {
-            post_id: encrypted.id(),
-            author: encrypted.author,
+            post_id: letter.id(),
+            author,
             body: post.body,
-            created_at: encrypted.created_at,
+            created_at: post.created_at,
             media: post.media,
         }
     }

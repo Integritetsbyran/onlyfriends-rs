@@ -161,7 +161,10 @@ impl Account {
         // Calculate the letter id. The letter is the same for all envelopes.
         let letter_id = envelopes.first().map(|p| p.letter.id());
         if let Some(first) = envelopes.first() {
-            self.store().await.save_post(&first.letter, post).await?;
+            self.store()
+                .await
+                .save_post(&self.identity.public().sign_pub, &first.letter, post)
+                .await?;
         }
 
         // Send only to actual friends; the trailing self-sealed post is unused.
@@ -206,12 +209,14 @@ impl Account {
                     continue;
                 };
 
+                let author = &friend.public.sign_pub;
+
                 match letter {
                     Message::Post(post) => {
                         if self
                             .store()
                             .await
-                            .save_post(&envelope.letter, &post)
+                            .save_post(author, &envelope.letter, &post)
                             .await?
                         {
                             sync_results.new_posts.push(post);
@@ -415,6 +420,7 @@ impl Account {
 
             let content = PostContent {
                 body: p.body,
+                created_at: p.created_at,
                 media: p.media,
             };
 

@@ -2588,6 +2588,7 @@ version = "0.1.0"
 dependencies = [
  "client-core",
  "keystone",
+ "onlyfriends-time",
  "storage-sqlite",
  "tokio",
  "tracing-subscriber",
