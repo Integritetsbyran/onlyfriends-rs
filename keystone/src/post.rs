@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// The content of a post
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct PostContent {
+pub struct Post {
     /// The plain-text content of a post.
     pub body: String,
 
@@ -11,7 +11,7 @@ pub struct PostContent {
     pub media: Vec<Media>,
 }
 
-impl PostContent {
+impl Post {
     pub fn from_body(body: impl Into<String>) -> Self {
         Self {
             body: body.into(),

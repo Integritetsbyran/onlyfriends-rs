@@ -19,7 +19,7 @@ pub enum ResponseBody {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ResponseInner {
+pub struct Response {
     pub letter_id: LetterId,
     /// Responder's public signing key
     pub author: SigningPublicKey,
@@ -28,7 +28,7 @@ pub struct ResponseInner {
     pub sig: Signature,
 }
 
-impl Signable for ResponseInner {
+impl Signable for Response {
     fn signing_bytes(&self) -> Vec<u8> {
         let Self {
             letter_id,
@@ -42,17 +42,13 @@ impl Signable for ResponseInner {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ResponseRebroadcast {
-    pub inner: ResponseInner,
+    pub inner: Response,
     /// post owner's signature over `inner`
     pub vouch_sig: Signature,
 }
 
-pub fn create_response(
-    responder: &Identity,
-    letter_id: LetterId,
-    body: ResponseBody,
-) -> ResponseInner {
-    let mut response_inner = ResponseInner {
+pub fn create_response(responder: &Identity, letter_id: LetterId, body: ResponseBody) -> Response {
+    let mut response_inner = Response {
         letter_id,
         author: responder.public().sign_pub,
         body,
@@ -67,7 +63,7 @@ pub fn open_and_vouch(
     sealed: &PublicKeySealed,
 ) -> crate::Result<ResponseRebroadcast> {
     let opened = PublicKeySealed::open(&owner.dh_secret(), sealed)?;
-    let response_inner = postcard::from_bytes::<ResponseInner>(&opened)?;
+    let response_inner = postcard::from_bytes::<Response>(&opened)?;
     let vk = ed25519_dalek::VerifyingKey::try_from(&response_inner.author)?;
     let sig = ed25519_dalek::Signature::from(response_inner.sig);
     response_inner.verify_signature(&vk, &sig)?;
@@ -101,7 +97,7 @@ mod tests {
     use super::*;
 
     // Helper: seal a signed ResponseInner to a recipient, the way Account::react would.
-    fn seal_response(inner: &ResponseInner, recipient: &DhPublicKey) -> PublicKeySealed {
+    fn seal_response(inner: &Response, recipient: &DhPublicKey) -> PublicKeySealed {
         let bytes = postcard::to_allocvec(inner).expect("serializes");
         PublicKeySealed::seal(recipient, &bytes)
     }

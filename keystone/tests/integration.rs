@@ -1,4 +1,9 @@
-use keystone::{Envelope, message::Message, post::PostContent, *};
+use keystone::{
+    Envelope,
+    message::{Message, MessageContent},
+    post::Post,
+    *,
+};
 
 #[test]
 fn alice_posts_bob_reads() {
@@ -12,9 +17,10 @@ fn alice_posts_bob_reads() {
     let b = friend::add_friend(&bob, &alice_id, "Alice");
     assert_eq!(a.pairwise_root, b.pairwise_root);
 
-    let post = PostContent::from_body("Hello bob 📸");
-    let envelopes = Envelope::seal_envelope(&alice, &Message::Post(post), &[bob_id]);
-    let Message::Post(post) = envelopes[0].open_envelope(&bob, &alice_id).unwrap() else {
+    let post = Post::from_body("Hello bob 📸");
+    let envelopes = Envelope::seal_envelope(&alice, &Message::new(post), &[bob_id]);
+    let message = envelopes[0].open_envelope(&bob, &alice_id).unwrap();
+    let MessageContent::Post(post) = message.content else {
         panic!("expected Post");
     };
 
@@ -27,8 +33,8 @@ fn stranger_and_tampering_are_rejected() {
     let bob = Identity::generate();
     let mallory = Identity::generate();
 
-    let post = PostContent::from_body("secret");
-    let mut envelopes = Envelope::seal_envelope(&alice, &Message::Post(post), &[bob.public()]);
+    let post = Post::from_body("secret");
+    let mut envelopes = Envelope::seal_envelope(&alice, &Message::new(post), &[bob.public()]);
     assert!(
         envelopes[0]
             .open_envelope(&mallory, &alice.public())
