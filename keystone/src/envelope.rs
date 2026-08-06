@@ -48,9 +48,10 @@ impl Envelope {
             .as_slice()
             .try_into()
             .map_err(|_| crate::Error::BadKey)?;
-        let post = crypto::aead_decrypt(&key, &self.letter.content_nonce, &self.letter.content_ct)?;
+        let message =
+            crypto::aead_decrypt(&key, &self.letter.content_nonce, &self.letter.content_ct)?;
 
-        postcard::from_bytes(&post).map_err(|_| crate::Error::Serialize)
+        postcard::from_bytes(&message).map_err(|_| crate::Error::Serialize)
     }
 
     pub fn seal_envelope(

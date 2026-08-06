@@ -171,7 +171,8 @@ impl WebStorage {
         &mut self,
         author: &SigningPublicKey,
         letter: &keystone::Letter,
-        post: &keystone::post::PostContent,
+        meta: &keystone::message::MessageMeta,
+        post: &keystone::post::Post,
     ) -> Result<bool, WebStorageError> {
         let tx = self
             .db
@@ -179,7 +180,7 @@ impl WebStorage {
             .with_model::<WebPost>()
             .writable()
             .build()?;
-        let web_post = WebPost::new(author, letter.clone(), post.clone());
+        let web_post = WebPost::new(author, letter.clone(), meta, post.clone());
         WebPost::with_transaction(&tx)?.add(&web_post).await?;
 
         tx.commit().await?;
@@ -330,9 +331,10 @@ impl Storage for WebStorage {
         &mut self,
         author: &SigningPublicKey,
         letter: &keystone::Letter,
-        post: &keystone::post::PostContent,
+        meta: &keystone::message::MessageMeta,
+        post: &keystone::post::Post,
     ) -> StorageResult<bool> {
-        Ok(self.save_post_inner(author, letter, post).await?)
+        Ok(self.save_post_inner(author, letter, meta, post).await?)
     }
 
     async fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {

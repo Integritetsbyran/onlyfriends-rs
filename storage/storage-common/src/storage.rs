@@ -1,4 +1,4 @@
-use keystone::{envelope::LetterId, identity::SigningPublicKey, post::PostContent};
+use keystone::{envelope::LetterId, identity::SigningPublicKey, message::MessageMeta, post::Post};
 
 use crate::types::{
     relay_config::RelayConfig, stored_post::StoredPost, stored_response::StoredResponse,
@@ -55,7 +55,8 @@ pub trait Storage: Send {
         &mut self,
         author: &SigningPublicKey,
         letter: &keystone::Letter,
-        post: &PostContent,
+        meta: &MessageMeta,
+        post: &Post,
     ) -> StorageResult<bool>;
 
     /// Load all posts from storage, returns an empty vector if no posts are found.

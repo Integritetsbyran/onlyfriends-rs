@@ -7,7 +7,8 @@ use keystone::{
     envelope::{Letter, LetterId},
     identity::{MasterSeed, SigningPublicKey},
     media::Media,
-    post::PostContent,
+    message::MessageMeta,
+    post::Post,
 };
 use mime::Mime;
 use storage_common::{
@@ -257,7 +258,8 @@ impl SqliteStorage {
         &mut self,
         author: &SigningPublicKey,
         letter: &Letter,
-        post: &PostContent,
+        meta: &MessageMeta,
+        post: &Post,
     ) -> Result<bool, SqliteStorageError> {
         let transaction = self.conn.transaction()?;
 
@@ -269,7 +271,7 @@ impl SqliteStorage {
                 letter_id.as_bytes(),
                 author.to_byte_slice(),
                 &post.body,
-                &post.created_at,
+                &meta.created_at,
             ),
         )?;
         let did_insert = rows > 0;
@@ -468,9 +470,10 @@ impl Storage for SqliteStorage {
         &mut self,
         author: &SigningPublicKey,
         letter: &Letter,
-        post: &PostContent,
+        meta: &MessageMeta,
+        post: &Post,
     ) -> StorageResult<bool> {
-        Ok(self.save_post_inner(author, letter, post)?)
+        Ok(self.save_post_inner(author, letter, meta, post)?)
     }
 
     async fn load_posts(&mut self) -> StorageResult<Vec<StoredPost>> {

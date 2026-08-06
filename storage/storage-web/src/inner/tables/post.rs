@@ -1,5 +1,5 @@
 use deli::Model;
-use keystone::{envelope::LetterId, identity::SigningPublicKey, post::PostContent};
+use keystone::{envelope::LetterId, identity::SigningPublicKey, message::MessageMeta, post::Post};
 use serde::{Deserialize, Serialize};
 use storage_common::types::stored_post::StoredPost;
 
@@ -14,12 +14,17 @@ pub struct WebPost {
 }
 
 impl WebPost {
-    pub fn new(&author: &SigningPublicKey, letter: keystone::Letter, post: PostContent) -> Self {
+    pub fn new(
+        &author: &SigningPublicKey,
+        letter: keystone::Letter,
+        meta: &MessageMeta,
+        post: Post,
+    ) -> Self {
         Self {
             post_id: letter.id(),
             author,
             body: post.body,
-            created_at: post.created_at,
+            created_at: meta.created_at,
             media: post.media,
         }
     }

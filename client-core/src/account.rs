@@ -1,8 +1,8 @@
 use keystone::Envelope;
 use keystone::envelope::LetterId;
 use keystone::identity::SigningPublicKey;
-use keystone::message::Message;
-use keystone::post::PostContent;
+use keystone::message::{Message, MessageContent};
+use keystone::post::Post;
 use onlyfriends_time::days_since_epoch;
 use storage_common::storage::Storage;
 use storage_common::types::{relay_config::RelayConfig, stored_response::ResponseKind};
@@ -22,9 +22,9 @@ pub struct Account {
 
 #[derive(Debug)]
 pub struct SyncResult {
-    pub new_posts: Vec<PostContent>,
+    pub new_posts: Vec<Post>,
     pub updated_profiles: Vec<keystone::Profile>,
-    pub new_responses: Vec<keystone::response::ResponseInner>,
+    pub new_responses: Vec<keystone::response::Response>,
 }
 
 impl SyncResult {
@@ -54,7 +54,7 @@ pub struct FeedPost {
     pub id: LetterId,
     pub author: SigningPublicKey,
     pub created_at: u64,
-    pub content: PostContent,
+    pub content: Post,
     pub reactions: Vec<FeedReaction>,
     pub comments: Vec<FeedComment>,
 }
@@ -136,13 +136,13 @@ impl Account {
         &mut self,
         body: impl Into<String>,
     ) -> crate::Result<Option<LetterId>> {
-        self.send_post(&PostContent::from_body(body)).await
+        self.send_post(&Post::from_body(body)).await
     }
 
     /// Seal `post` in a `Letter` and send it to all friends.
     ///
     /// Returns the letter id, or `None` if you have no friends.
-    pub async fn send_post(&mut self, post: &PostContent) -> crate::Result<Option<LetterId>> {
+    pub async fn send_post(&mut self, post: &Post) -> crate::Result<Option<LetterId>> {
         let friends = self.store().await.load_friends().await?;
         let recipients: Vec<_> = friends.iter().map(|f| f.public.clone()).collect();
 
@@ -152,18 +152,21 @@ impl Account {
         // user has any friends yet.
         let mut recipients_with_self = recipients.clone();
         recipients_with_self.push(self.identity.public());
-        let envelopes = keystone::Envelope::seal_envelope(
-            &self.identity,
-            &Message::Post(post.clone()),
-            &recipients_with_self,
-        );
+        let message = Message::new(post.clone());
+        let envelopes =
+            keystone::Envelope::seal_envelope(&self.identity, &message, &recipients_with_self);
 
         // Calculate the letter id. The letter is the same for all envelopes.
         let letter_id = envelopes.first().map(|p| p.letter.id());
         if let Some(first) = envelopes.first() {
             self.store()
                 .await
-                .save_post(&self.identity.public().sign_pub, &first.letter, post)
+                .save_post(
+                    &self.identity.public().sign_pub,
+                    &first.letter,
+                    &message.meta,
+                    post,
+                )
                 .await?;
         }
 
@@ -205,24 +208,25 @@ impl Account {
                     continue;
                 };
 
-                let Ok(letter) = envelope.open_envelope(&self.identity, &friend.public) else {
+                let Ok(message) = envelope.open_envelope(&self.identity, &friend.public) else {
                     continue;
                 };
 
                 let author = &friend.public.sign_pub;
 
-                match letter {
-                    Message::Post(post) => {
+                match message.content {
+                    MessageContent::Post(post) => {
                         if self
                             .store()
                             .await
-                            .save_post(author, &envelope.letter, &post)
+                            // TODO: store time of message receipt to guard against fake timestamp attacks
+                            .save_post(author, &envelope.letter, &message.meta, &post)
                             .await?
                         {
                             sync_results.new_posts.push(post);
                         }
                     }
-                    Message::Profile(profile) => {
+                    MessageContent::Profile(profile) => {
                         if keystone::profile::verify_profile(&profile).is_err() {
                             continue;
                         }
@@ -234,11 +238,11 @@ impl Account {
                             sync_results.updated_profiles.push(profile);
                         }
                     }
-                    Message::Response(response) => {
+                    MessageContent::Response(response) => {
                         // Vouch for the response by signing it
                         use keystone::Signable;
                         let vouch_sig = response.sign_with(&self.identity.signing_key());
-                        let rb = keystone::response::ResponseRebroadcast {
+                        let rebroadcast = keystone::response::ResponseRebroadcast {
                             inner: response,
                             vouch_sig,
                         };
@@ -247,17 +251,17 @@ impl Account {
                         for f in friends {
                             let envelopes = Envelope::seal_envelope(
                                 &self.identity,
-                                &Message::Rebroadcast(rb.clone()),
+                                &Message::new(rebroadcast.clone()),
                                 std::slice::from_ref(&f.public),
                             );
                             if let Some(envelope) = envelopes.into_iter().next() {
                                 self.post_envelope(&f, envelope).await?;
                             }
                         }
-                        sync_results.new_responses.push(rb.inner.clone());
-                        self.save_response(rb).await?;
+                        sync_results.new_responses.push(rebroadcast.inner.clone());
+                        self.save_response(rebroadcast).await?;
                     }
-                    Message::Rebroadcast(rb) => {
+                    MessageContent::ResponseRebroadcast(rb) => {
                         sync_results.new_responses.push(rb.inner.clone());
                         self.save_response(rb).await?;
                     }
@@ -335,7 +339,7 @@ impl Account {
         };
         let envelopes = Envelope::seal_envelope(
             &self.identity,
-            &Message::Profile(profile),
+            &Message::new(profile),
             std::slice::from_ref(&friend.public),
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
@@ -358,7 +362,7 @@ impl Account {
         else {
             return Err(ClientError::NotFriendError("react to a post"));
         };
-        let inner = keystone::response::create_response(
+        let response = keystone::response::create_response(
             &self.identity,
             letter_id,
             keystone::ResponseBody::Reaction {
@@ -368,7 +372,7 @@ impl Account {
 
         let envelopes = Envelope::seal_envelope(
             &self.identity,
-            &Message::Response(inner),
+            &Message::new(response),
             std::slice::from_ref(&owner.public),
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
@@ -389,7 +393,7 @@ impl Account {
         else {
             return Err(ClientError::NotFriendError("comment on a post"));
         };
-        let inner = keystone::response::create_response(
+        let response = keystone::response::create_response(
             &self.identity,
             letter_id,
             keystone::ResponseBody::Comment {
@@ -397,10 +401,9 @@ impl Account {
             },
         );
 
-        let message = Message::Response(inner);
         let envelopes = Envelope::seal_envelope(
             &self.identity,
-            &message,
+            &Message::new(response),
             std::slice::from_ref(&owner.public),
         );
         let envelope = envelopes.into_iter().next().expect("one recipient");
@@ -418,9 +421,8 @@ impl Account {
                 .into_iter()
                 .partition(|r| r.kind == ResponseKind::Reaction);
 
-            let content = PostContent {
+            let content = Post {
                 body: p.body,
-                created_at: p.created_at,
                 media: p.media,
             };
 

@@ -1,4 +1,4 @@
-use keystone::{identity::SigningPublicKey, response::ResponseInner};
+use keystone::{identity::SigningPublicKey, response::Response};
 use serde::{Deserialize, Serialize};
 
 use crate::storage::StorageError;
@@ -37,8 +37,8 @@ pub struct StoredResponse {
     pub content: String,
 }
 
-impl From<ResponseInner> for StoredResponse {
-    fn from(value: ResponseInner) -> Self {
+impl From<Response> for StoredResponse {
+    fn from(value: Response) -> Self {
         let (kind, content) = match value.body {
             keystone::ResponseBody::Comment { text } => (ResponseKind::Comment, text),
             keystone::ResponseBody::Reaction { emoji } => (ResponseKind::Reaction, emoji),
