@@ -1947,6 +1947,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dioxus-free-icons"
+version = "0.10.0"
+source = "git+https://github.com/integritetsbyran/dioxus-free-icons?rev=66db756a396ef550df75858bf996b819566a3bba#66db756a396ef550df75858bf996b819566a3bba"
+dependencies = [
+ "dioxus",
+]
+
+[[package]]
 name = "dioxus-fullstack"
 version = "0.8.0-alpha.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8139,6 +8147,7 @@ dependencies = [
  "base64",
  "client-core",
  "dioxus",
+ "dioxus-free-icons",
  "keystone",
  "onlyfriends-time",
  "storage-common",
