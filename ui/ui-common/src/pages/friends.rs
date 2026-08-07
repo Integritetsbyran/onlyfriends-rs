@@ -1,4 +1,11 @@
+use std::time::Duration;
+
 use dioxus::{logger::tracing, prelude::*};
+use dioxus_free_icons::{
+    Icon,
+    icons::ld_icons::{LdCheck, LdCopy},
+};
+use futures_timer::Delay;
 
 use crate::{components::FriendItem, context};
 
@@ -24,7 +31,7 @@ fn hex_to_bytes(s: &str) -> Option<Vec<u8>> {
 /// current friends, and provides a form to add a new friend by pasting their
 /// hex-encoded public identity bytes.
 #[component]
-pub fn FriendsPage() -> Element {
+pub fn FriendsPage(on_copy_key: EventHandler<String>) -> Element {
     let account = context::use_app_account();
     let mut friends = use_signal(Vec::<client_core::Friend>::new);
     let mut own_hex = use_signal(String::new);
@@ -54,6 +61,9 @@ pub fn FriendsPage() -> Element {
             };
         });
     });
+
+    // Used to show a temporary confirmation when the user copies their own key to the clipboard.
+    let mut copied = use_signal(|| false);
 
     // Add-friend form state.
     let mut their_key_hex = use_signal(String::new);
@@ -128,11 +138,37 @@ pub fn FriendsPage() -> Element {
             div { class: "card own-key-card",
                 h3 { "Your public key" }
                 p { class: "hint", "Share this with friends so they can add you." }
-                input {
-                    r#type: "text",
-                    class: "input key-input",
-                    readonly: true,
-                    value: "{own_hex}",
+                div { class: "key-row",
+                    input {
+                        r#type: "text",
+                        class: "input key-input",
+                        readonly: true,
+                        value: "{own_hex}",
+                    }
+                    button {
+                        class: if *copied.read() {
+                            "btn btn-secondary copy-btn copied"
+                        } else {
+                            "btn btn-secondary copy-btn"
+                        },
+                        title: "Copy public key",
+                        "aria-label": "Copy public key",
+                        onclick: move |_| {
+                            on_copy_key.call(own_hex.read().clone());
+
+                            // Set the "copied" state for 2 seconds, then reset it.
+                            copied.set(true);
+                            spawn(async move {
+                                Delay::new(Duration::from_secs(2)).await;
+                                copied.set(false);
+                            });
+                        },
+                        if *copied.read() {
+                            Icon { width: 18, height: 18, icon: LdCheck }
+                        } else {
+                            Icon { width: 18, height: 18, icon: LdCopy }
+                        }
+                    }
                 }
             }
 

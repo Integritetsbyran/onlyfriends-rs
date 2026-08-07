@@ -12,3 +12,4 @@ client-core = { workspace = true }
 storage-common = { workspace = true }
 base64.workspace = true
 onlyfriends-time = { workspace = true }
+futures-timer = { version = "3.0.4", features = ["wasm-bindgen"] }

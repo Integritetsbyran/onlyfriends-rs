@@ -136,7 +136,12 @@ fn Feed() -> Element {
 #[component]
 fn Friends() -> Element {
     rsx! {
-        pages::FriendsPage {}
+        pages::FriendsPage {
+            on_copy_key: move |key| {
+                // TODO: Consider making a context for the clipboard so that we can reuse it more easily.
+                let _ = arboard::Clipboard::new().and_then(|mut cb| cb.set_text(key));
+            },
+        }
     }
 }
 
