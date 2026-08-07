@@ -6,3 +6,6 @@
 /repo
 **/*.flatpak
 ui/web/.vscode/settings.json
+
+# AI shit
+.playwright-mcp/
