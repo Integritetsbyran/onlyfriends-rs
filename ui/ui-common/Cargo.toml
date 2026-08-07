@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 dioxus = { workspace = true, features = ["default"] }
+dioxus-free-icons = { workspace = true, features = ["lucide"] }
 tokio = { workspace = true, features = ["sync"] }
 keystone = { workspace = true }
 client-core = { workspace = true }

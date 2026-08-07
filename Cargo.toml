@@ -1,3 +1,7 @@
+[patch.crates-io]
+dioxus-free-icons = { git = "https://github.com/integritetsbyran/dioxus-free-icons", rev = "66db756a396ef550df75858bf996b819566a3bba" }
+
+
 [workspace]
 resolver = "2"
 members = [
@@ -17,6 +21,7 @@ members = [
 
 [workspace.dependencies]
 dioxus = { version = "0.8.0-alpha.1", default-features = false }
+dioxus-free-icons = { version = "0.10.0", default-features = false }
 dioxus-native = "0.8.0-alpha.1"
 dioxus-router = "0.8.0-alpha.1"
 axum = "0.8"
