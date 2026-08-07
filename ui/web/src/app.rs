@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{prelude::*, router::Navigator};
 
 use client_core::account::Store;
 use std::sync::Arc;
@@ -114,8 +114,27 @@ fn Feed() -> Element {
 
 #[component]
 fn Friends() -> Element {
+    let copy = use_callback(async move |key: String| {
+        let js = format!(
+            r#"
+const text = "{key}";
+await navigator.clipboard.writeText(text);
+dioxus.send(true);                
+            "#
+        );
+
+        let mut eval = document::eval(&js);
+        if eval.recv::<bool>().await.is_ok() {}
+    });
+
     rsx! {
-        pages::FriendsPage {}
+        pages::FriendsPage {
+            on_copy_key: move |key| {
+                spawn(async move {
+                    copy.call(key).await;
+                });
+            },
+        }
     }
 }
 

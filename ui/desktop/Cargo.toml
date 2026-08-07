@@ -15,6 +15,7 @@ ui = { workspace = true }
 image.workspace = true
 winit.workspace = true
 winit-wayland.workspace = true
+arboard = { version = "3.6.1", features = ["wayland-data-control"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 xdg.workspace = true
