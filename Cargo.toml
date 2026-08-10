@@ -22,6 +22,7 @@ members = [
 [workspace.dependencies]
 dioxus = { version = "0.8.0-alpha.1", default-features = false }
 dioxus-free-icons = { version = "0.10.0", default-features = false }
+dioxus-primitives = { git = "https://github.com/integritetsbyran/dioxus-components", rev = "35a1d49", package = "dioxus-primitives" }
 dioxus-native = "0.8.0-alpha.1"
 dioxus-router = "0.8.0-alpha.1"
 axum = "0.8"

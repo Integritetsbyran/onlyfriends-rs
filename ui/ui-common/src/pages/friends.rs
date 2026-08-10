@@ -5,6 +5,7 @@ use dioxus_free_icons::{
     Icon,
     icons::ld_icons::{LdCheck, LdCopy},
 };
+use dioxus_primitives::toast::{ToastOptions, ToastProvider, use_toast};
 use futures_timer::Delay;
 
 use crate::{components::FriendItem, context};
@@ -27,12 +28,21 @@ fn hex_to_bytes(s: &str) -> Option<Vec<u8>> {
         .collect()
 }
 
-/// Friends management page. Shows the user's own shareable public key, lists
-/// current friends, and provides a form to add a new friend by pasting their
-/// hex-encoded public identity bytes.
+/// Friends management page. Wraps the inner page with a `ToastProvider` so
+/// toasts are self-contained within this page.
 #[component]
 pub fn FriendsPage(on_copy_key: EventHandler<String>) -> Element {
+    rsx! {
+        ToastProvider { class: "toast-region",
+            FriendsPageInner { on_copy_key }
+        }
+    }
+}
+
+#[component]
+fn FriendsPageInner(on_copy_key: EventHandler<String>) -> Element {
     let account = context::use_app_account();
+    let toast = use_toast();
     let mut friends = use_signal(Vec::<client_core::Friend>::new);
     let mut own_hex = use_signal(String::new);
 
@@ -156,7 +166,9 @@ pub fn FriendsPage(on_copy_key: EventHandler<String>) -> Element {
                         onclick: move |_| {
                             on_copy_key.call(own_hex.read().clone());
 
-                            // Set the "copied" state for 2 seconds, then reset it.
+                            toast.success("Copied!".to_string(), ToastOptions::new());
+
+                            // Set the "copied" state for 2 seconds to change the icon, then reset it.
                             copied.set(true);
                             spawn(async move {
                                 Delay::new(Duration::from_secs(2)).await;
