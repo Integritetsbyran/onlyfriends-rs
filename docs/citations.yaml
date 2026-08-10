@@ -1,0 +1,13 @@
+rfc8032:
+  type: web
+  title: "RFC 8032: Edwards-Curve Digital Signature Algorithm (EdDSA)"
+  author: IRTF
+  url: https://www.rfc-editor.org/info/rfc8032/
+  date: 2017
+
+vector-clock:
+  type: web
+  title: Vector clock
+  author: Wikipedia
+  url: https://en.wikipedia.org/wiki/Vector_clock
+  date: 2026-08-12
