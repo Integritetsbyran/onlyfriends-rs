@@ -25,12 +25,35 @@ enum Route {
         /// Own profile.
         #[route("/profile")]
         Profile {},
+        /// App preferences.
+        #[route("/prefs")]
+        Prefs {},
 }
 
 #[component]
 pub fn App() -> Element {
     use_context_provider(|| Signal::new(None::<context::AppAccount>));
     use_context_provider(|| Signal::new(None::<context::ModalContent>));
+
+    let mut account = context::use_app_account();
+    let mut initialized = use_signal(|| false);
+
+    use_effect(move || {
+        spawn(async move {
+            let store: Store = Arc::new(Mutex::new(WebStorage::open("TMP").await.unwrap()));
+            if let Ok(Some(acc)) = client_core::Account::open(store).await {
+                account.set(Some(Arc::new(Mutex::new(acc))));
+            }
+            initialized.set(true);
+        });
+    });
+
+    if !initialized() {
+        return rsx! {
+            document::Stylesheet { href: APP_CSS }
+            div { class: "loading", "Loading…" }
+        };
+    }
 
     rsx! {
         document::Stylesheet { href: APP_CSS }
@@ -41,18 +64,14 @@ pub fn App() -> Element {
 /// Shared layout. Shows the top-nav only when the user is logged in.
 #[component]
 fn AppLayout() -> Element {
-    let account = context::use_app_account();
+    let nav = use_navigator();
 
     rsx! {
-        div { class: "app-root",
-            if account.read().is_some() {
-                nav { class: "top-nav",
-                    span { class: "app-title", "OnlyFriends" }
-                    Link { to: Route::Feed {}, class: "nav-tab", "Feed" }
-                    Link { to: Route::Friends {}, class: "nav-tab", "Friends" }
-                    Link { to: Route::Profile {}, class: "nav-tab", "Profile" }
-                }
-            }
+        ui::AppRoot {
+            on_feed: move |_| { nav.push(Route::Feed {}); },
+            on_friends: move |_| { nav.push(Route::Friends {}); },
+            on_profile: move |_| { nav.push(Route::Profile {}); },
+            on_prefs: move |_| { nav.push(Route::Prefs {}); },
             Outlet::<Route> {}
         }
     }
@@ -142,5 +161,12 @@ dioxus.send(true);
 fn Profile() -> Element {
     rsx! {
         pages::ProfilePage {}
+    }
+}
+
+#[component]
+fn Prefs() -> Element {
+    rsx! {
+        pages::Prefs {}
     }
 }

@@ -1,7 +1,7 @@
 use client_core::account::Store;
 use dioxus_native::prelude::*;
 use dioxus_router::hooks::use_navigator;
-use dioxus_router::{Link, Outlet, Routable, Router};
+use dioxus_router::{Outlet, Routable, Router};
 use image::GenericImageView;
 use std::sync::Arc;
 use storage_sqlite::SqliteStorage;
@@ -62,6 +62,27 @@ fn App() -> Element {
     use_context_provider(|| Signal::new(None::<context::AppAccount>));
     use_context_provider(|| Signal::new(None::<context::ModalContent>));
 
+    let mut account = context::use_app_account();
+    let mut initialized = use_signal(|| false);
+
+    use_effect(move || {
+        let db_path = config::db_path().unwrap();
+        spawn(async move {
+            let store: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
+            if let Ok(Some(acc)) = client_core::Account::open(store).await {
+                account.set(Some(Arc::new(Mutex::new(acc))));
+            }
+            initialized.set(true);
+        });
+    });
+
+    if !initialized() {
+        return rsx! {
+            document::Stylesheet { href: APP_CSS }
+            div { class: "loading", "Loading…" }
+        };
+    }
+
     rsx! {
         document::Stylesheet { href: APP_CSS }
         Router::<Route> {}
@@ -71,19 +92,14 @@ fn App() -> Element {
 /// Shared layout. Shows the top-nav only when the user is logged in.
 #[component]
 fn AppLayout() -> Element {
-    let account = context::use_app_account();
+    let nav = use_navigator();
 
     rsx! {
-        div { class: "app-root",
-            if account.read().is_some() {
-                nav { class: "top-nav",
-                    span { class: "app-title", "OnlyFriends" }
-                    Link { to: Route::Feed {}, class: "nav-tab", "Feed" }
-                    Link { to: Route::Friends {}, class: "nav-tab", "Friends" }
-                    Link { to: Route::Profile {}, class: "nav-tab", "Profile" }
-                    Link { to: Route::Prefs {}, class: "nav-tab", "⚙" }
-                }
-            }
+        ui::AppRoot {
+            on_feed: move |_| { nav.push(Route::Feed {}); },
+            on_friends: move |_| { nav.push(Route::Friends {}); },
+            on_profile: move |_| { nav.push(Route::Profile {}); },
+            on_prefs: move |_| { nav.push(Route::Prefs {}); },
             Outlet::<Route> {}
         }
     }
