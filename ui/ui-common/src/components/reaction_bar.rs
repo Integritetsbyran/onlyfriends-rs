@@ -32,8 +32,7 @@ pub fn ReactionBar(
         if emoji.is_empty() {
             return;
         }
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        let Some(arc) = acc_opt else { return };
+        let arc = account.read().clone();
 
         err.set(String::new());
         sending.set(true);

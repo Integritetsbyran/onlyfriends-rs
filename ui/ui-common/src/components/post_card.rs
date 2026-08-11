@@ -47,9 +47,7 @@ pub fn PostCard(post: Arc<client_core::FeedPost>) -> Element {
     // Try to resolve author display name from stored profiles.
     let author_key = post.author;
     use_effect(move || {
-        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
-            return;
-        };
+        let arc = account.read().clone();
         spawn(async move {
             let acc = arc.lock().await;
             let result: client_core::Result<()> = async {

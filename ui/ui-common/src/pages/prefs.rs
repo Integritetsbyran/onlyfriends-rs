@@ -14,8 +14,7 @@ pub fn Prefs() -> Element {
 
     // Load preferences on mount.
     use_effect(move || {
-        let account = account.read().as_ref().map(|a| a.clone());
-        let Some(account) = account else { return };
+        let account = account.read().clone();
         spawn(async move {
             let account = account.lock().await;
             let relay_config = account
@@ -39,8 +38,7 @@ pub fn Prefs() -> Element {
             return;
         }
 
-        let account = account.read().as_ref().map(|a| a.clone());
-        let Some(account) = account else { return };
+        let account = account.read().clone();
 
         save_err.set(String::new());
         save_ok.set(false);

@@ -38,12 +38,9 @@ pub fn FriendsPage(on_copy_key: EventHandler<String>) -> Element {
 
     // Load friends + own key on mount.
     use_effect(move || {
-        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
-            return;
-        };
-
         spawn(async move {
             let result: client_core::Result<()> = async {
+                let arc = account.read().clone();
                 let acc = arc.lock().await;
 
                 let pub_id = acc.identity.public();
@@ -94,14 +91,10 @@ pub fn FriendsPage(on_copy_key: EventHandler<String>) -> Element {
             return;
         };
 
-        let acc_opt = account.read().as_ref().map(|a| a.clone());
-        let Some(arc) = acc_opt else {
-            add_err.set("Not logged in.".to_string());
-            return;
-        };
-
         add_err.set(String::new());
         adding.set(true);
+
+        let arc = account.read().clone();
 
         spawn(async move {
             let mut acc = arc.lock().await;

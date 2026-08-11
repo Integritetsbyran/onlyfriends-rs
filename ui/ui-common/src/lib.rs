@@ -11,3 +11,5 @@ pub mod hero;
 pub use hero::Hero;
 pub mod navbar;
 pub use navbar::Navbar;
+pub mod root;
+pub use root::AppRoot;

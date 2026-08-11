@@ -1,4 +1,4 @@
-use dioxus::{prelude::*, router::Navigator};
+use dioxus::prelude::*;
 
 use client_core::account::Store;
 use std::sync::Arc;
@@ -9,13 +9,13 @@ use ui::{APP_CSS, context, pages};
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 enum Route {
+    /// First-run onboarding.
+    #[route("/setup")]
+    Setup {},
     #[layout(AppLayout)]
         /// Startup guard — tries auto-login, then redirects.
         #[route("/")]
         Guard {},
-        /// First-run onboarding.
-        #[route("/setup")]
-        Setup {},
         /// Main feed.
         #[route("/feed")]
         Feed {},
@@ -25,36 +25,62 @@ enum Route {
         /// Own profile.
         #[route("/profile")]
         Profile {},
+        /// App preferences.
+        #[route("/prefs")]
+        Prefs {},
 }
 
 #[component]
 pub fn App() -> Element {
-    use_context_provider(|| Signal::new(None::<context::AppAccount>));
-    use_context_provider(|| Signal::new(None::<context::ModalContent>));
-
     rsx! {
         document::Stylesheet { href: APP_CSS }
         Router::<Route> {}
     }
 }
 
-/// Shared layout. Shows the top-nav only when the user is logged in.
+/// Shared layout — owns the account lifecycle.
 #[component]
 fn AppLayout() -> Element {
-    let account = context::use_app_account();
+    let mut account = use_signal(|| None::<context::AppAccount>);
+    let mut initialized = use_signal(|| false);
 
-    rsx! {
-        div { class: "app-root",
-            if account.read().is_some() {
-                nav { class: "top-nav",
-                    span { class: "app-title", "OnlyFriends" }
-                    Link { to: Route::Feed {}, class: "nav-tab", "Feed" }
-                    Link { to: Route::Friends {}, class: "nav-tab", "Friends" }
-                    Link { to: Route::Profile {}, class: "nav-tab", "Profile" }
+    // Make the writable optional signal available as context so the Setup route
+    // can set it once registration or auto-login completes.
+    use_context_provider(|| account);
+
+    let nav = use_navigator();
+
+    use_effect(move || {
+        spawn(async move {
+            let store: Store = Arc::new(Mutex::new(WebStorage::open("TMP").await.unwrap()));
+            match client_core::Account::open(store).await {
+                Ok(Some(acc)) => {
+                    account.set(Some(context::AppAccount::new(acc)));
+                    initialized.set(true);
+                }
+                _ => {
+                    nav.push(Route::Setup {});
                 }
             }
-            Outlet::<Route> {}
-        }
+        });
+    });
+
+    if !initialized() {
+        return rsx! { div { class: "loading", "Loading…" } };
+    }
+
+    match account() {
+        Some(acc) => rsx! {
+            ui::AppRoot {
+                on_feed: move |_| { nav.push(Route::Feed {}); },
+                on_friends: move |_| { nav.push(Route::Friends {}); },
+                on_profile: move |_| { nav.push(Route::Profile {}); },
+                on_prefs: move |_| { nav.push(Route::Prefs {}); },
+                account: acc,
+                Outlet::<Route> {}
+            }
+        },
+        None => rsx! { div { class: "loading", "Loading…" } },
     }
 }
 
@@ -94,7 +120,7 @@ fn Setup() -> Element {
     rsx! {
         if let Some(store) = storage() {
             pages::SetupPage {
-                on_complete: move |_| {
+                on_complete: move |()| {
                     nav.push(Route::Feed {});
                 },
                 get_storage: move || store.clone(),
@@ -142,5 +168,12 @@ dioxus.send(true);
 fn Profile() -> Element {
     rsx! {
         pages::ProfilePage {}
+    }
+}
+
+#[component]
+fn Prefs() -> Element {
+    rsx! {
+        pages::Prefs {}
     }
 }

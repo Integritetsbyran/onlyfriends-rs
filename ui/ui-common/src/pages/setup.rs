@@ -1,13 +1,21 @@
-use std::sync::Arc;
-
 use dioxus::prelude::*;
-use tokio::sync::Mutex;
 
-use crate::context;
+/// State of the SetupPage
+#[derive(Clone, Copy)]
+enum State {
+    Initial,
+    /// Trying to load an existing account
+    LoadingAccount,
+    /// Failed to load an existing account.
+    /// User must register a new account.
+    AwaitingRegistration,
+    /// Trying to create a new account
+    Submitting,
+}
 
 /// First-run onboarding screen. Collects a relay URL, display name, and bio,
-/// opens (or creates) the local database, persists the account in context,
-/// and calls `on_complete` so the caller can navigate away.
+/// opens (or creates) the local database, and calls `on_complete` with the
+/// resulting account so the caller can store it and navigate away.
 #[component]
 pub fn SetupPage(
     on_complete: EventHandler<()>,
@@ -18,30 +26,14 @@ pub fn SetupPage(
     let mut bio = use_signal(String::new);
     let mut error_msg = use_signal(String::new);
 
-    /// State of the SetupPage
-    #[derive(Clone, Copy)]
-    enum State {
-        Initial,
-        /// Trying to load an existing account
-        LoadingAccount,
-        /// Failed to load an existing account.
-        /// User must register a new account.
-        AwaitingRegistration,
-        /// Trying to create a new account
-        Submitting,
-    }
-
     let mut state = use_signal(|| State::Initial);
-
-    let mut account = context::use_app_account();
 
     if let State::Initial = state() {
         state.set(State::LoadingAccount);
         spawn(async move {
             match client_core::Account::open(get_storage(())).await {
-                Ok(Some(acc)) => {
-                    account.set(Some(Arc::new(Mutex::new(acc))));
-                    on_complete.call(());
+                Ok(Some(_)) => {
+                    on_complete(());
                 }
                 _ => {
                     state.set(State::AwaitingRegistration);
@@ -76,9 +68,8 @@ pub fn SetupPage(
         spawn(async move {
             match client_core::Account::create_new(get_storage.call(()), &relay).await {
                 Ok(acc) => {
-                    // Best-effort: set the profile; ignore errors here — user can update later.
+                    // TODO: Error handling.
                     let _ = acc.set_profile(&name, &bio_text).await;
-                    account.set(Some(Arc::new(Mutex::new(acc))));
                     on_complete.call(());
                 }
                 Err(e) => {

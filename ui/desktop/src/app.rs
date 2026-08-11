@@ -1,7 +1,7 @@
 use client_core::account::Store;
 use dioxus_native::prelude::*;
 use dioxus_router::hooks::use_navigator;
-use dioxus_router::{Link, Outlet, Routable, Router};
+use dioxus_router::{Outlet, Routable, Router};
 use image::GenericImageView;
 use std::sync::Arc;
 use storage_sqlite::SqliteStorage;
@@ -15,13 +15,13 @@ const APP_CSS: Asset = ui::APP_CSS;
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 enum Route {
+    /// First-run onboarding.
+    #[route("/setup")]
+    Setup {},
     #[layout(AppLayout)]
         /// Startup guard — tries auto-login, then redirects.
         #[route("/")]
         Guard {},
-        /// First-run onboarding.
-        #[route("/setup")]
-        Setup {},
         /// Main feed.
         #[route("/feed")]
         Feed {},
@@ -56,36 +56,59 @@ pub fn run() {
     dioxus_native::launch_cfg(App, vec![], vec![Box::new(window_attrs)]);
 }
 
-/// Root component — provides the account context for the entire tree.
+/// Root component.
 #[component]
 fn App() -> Element {
-    use_context_provider(|| Signal::new(None::<context::AppAccount>));
-    use_context_provider(|| Signal::new(None::<context::ModalContent>));
-
     rsx! {
         document::Stylesheet { href: APP_CSS }
         Router::<Route> {}
     }
 }
 
-/// Shared layout. Shows the top-nav only when the user is logged in.
+/// Shared layout — owns the account lifecycle.
 #[component]
 fn AppLayout() -> Element {
-    let account = context::use_app_account();
+    let mut account = use_signal(|| None::<context::AppAccount>);
+    let mut initialized = use_signal(|| false);
 
-    rsx! {
-        div { class: "app-root",
-            if account.read().is_some() {
-                nav { class: "top-nav",
-                    span { class: "app-title", "OnlyFriends" }
-                    Link { to: Route::Feed {}, class: "nav-tab", "Feed" }
-                    Link { to: Route::Friends {}, class: "nav-tab", "Friends" }
-                    Link { to: Route::Profile {}, class: "nav-tab", "Profile" }
-                    Link { to: Route::Prefs {}, class: "nav-tab", "⚙" }
+    // Make the writable optional signal available as context so the Setup route
+    // can set it once registration or auto-login completes.
+    use_context_provider(|| account);
+
+    let nav = use_navigator();
+
+    use_effect(move || {
+        let db_path = config::db_path().unwrap();
+        spawn(async move {
+            let store: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
+            match client_core::Account::open(store).await {
+                Ok(Some(acc)) => {
+                    account.set(Some(context::AppAccount::new(acc)));
+                    initialized.set(true);
+                }
+                _ => {
+                    nav.push(Route::Setup {});
                 }
             }
-            Outlet::<Route> {}
-        }
+        });
+    });
+
+    if !initialized() {
+        return rsx! { div { class: "loading", "Loading…" } };
+    }
+
+    match account() {
+        Some(acc) => rsx! {
+            ui::AppRoot {
+                on_feed: move |_| { nav.push(Route::Feed {}); },
+                on_friends: move |_| { nav.push(Route::Friends {}); },
+                on_profile: move |_| { nav.push(Route::Profile {}); },
+                on_prefs: move |_| { nav.push(Route::Prefs {}); },
+                account: acc,
+                Outlet::<Route> {}
+            }
+        },
+        None => rsx! { div { class: "loading", "Loading…" } },
     }
 }
 
@@ -118,7 +141,7 @@ fn Setup() -> Element {
     let callback = use_callback(move |_| storage.clone());
     rsx! {
         pages::SetupPage {
-            on_complete: move |_| {
+            on_complete: move || {
                 nav.push(Route::Feed {});
             },
             get_storage: callback,
