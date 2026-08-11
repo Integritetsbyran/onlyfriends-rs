@@ -56,33 +56,9 @@ pub fn run() {
     dioxus_native::launch_cfg(App, vec![], vec![Box::new(window_attrs)]);
 }
 
-/// Root component — provides the account context for the entire tree.
+/// Root component.
 #[component]
 fn App() -> Element {
-    use_context_provider(|| Signal::new(None::<context::AppAccount>));
-    use_context_provider(|| Signal::new(None::<context::ModalContent>));
-
-    let mut account = context::use_app_account();
-    let mut initialized = use_signal(|| false);
-
-    use_effect(move || {
-        let db_path = config::db_path().unwrap();
-        spawn(async move {
-            let store: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
-            if let Ok(Some(acc)) = client_core::Account::open(store).await {
-                account.set(Some(Arc::new(Mutex::new(acc))));
-            }
-            initialized.set(true);
-        });
-    });
-
-    if !initialized() {
-        return rsx! {
-            document::Stylesheet { href: APP_CSS }
-            div { class: "loading", "Loading…" }
-        };
-    }
-
     rsx! {
         document::Stylesheet { href: APP_CSS }
         Router::<Route> {}
@@ -92,7 +68,25 @@ fn App() -> Element {
 /// Shared layout. Shows the top-nav only when the user is logged in.
 #[component]
 fn AppLayout() -> Element {
+    let mut account = use_signal(|| None::<context::AppAccount>);
+
+    use_effect(move || {
+        let db_path = config::db_path().unwrap();
+        spawn(async move {
+            let store: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
+            if let Ok(Some(acc)) = client_core::Account::open(store).await {
+                account.set(Some(Arc::new(Mutex::new(acc))));
+            }
+        });
+    });
+
     let nav = use_navigator();
+
+    let Some(acc) = account() else {
+        return rsx! {
+            div { class: "loading", "Loading…" }
+        };
+    };
 
     rsx! {
         ui::AppRoot {
@@ -100,6 +94,7 @@ fn AppLayout() -> Element {
             on_friends: move |_| { nav.push(Route::Friends {}); },
             on_profile: move |_| { nav.push(Route::Profile {}); },
             on_prefs: move |_| { nav.push(Route::Prefs {}); },
+            account: acc,
             Outlet::<Route> {}
         }
     }

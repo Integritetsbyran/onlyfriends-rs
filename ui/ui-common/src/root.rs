@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::context;
+use crate::context::{AppAccount, ModalContent};
 
 #[component]
 pub fn AppRoot(
@@ -8,20 +8,20 @@ pub fn AppRoot(
     on_friends: EventHandler<()>,
     on_profile: EventHandler<()>,
     on_prefs: EventHandler<()>,
+    account: Signal<AppAccount>,
     children: Element,
 ) -> Element {
-    let account = context::use_app_account();
+    use_context_provider(|| account);
+    use_context_provider(|| Signal::new(None::<ModalContent>));
 
     rsx! {
         div { class: "app-root",
-            if account.read().is_some() {
-                nav { class: "top-nav",
-                    span { class: "app-title", "OnlyFriends" }
-                    a { class: "nav-tab", onclick: move |_| on_feed.call(()), "Feed" }
-                    a { class: "nav-tab", onclick: move |_| on_friends.call(()), "Friends" }
-                    a { class: "nav-tab", onclick: move |_| on_profile.call(()), "Profile" }
-                    a { class: "nav-tab", onclick: move |_| on_prefs.call(()), "⚙" }
-                }
+            nav { class: "top-nav",
+                span { class: "app-title", "OnlyFriends" }
+                a { class: "nav-tab", onclick: move |_| on_feed.call(()), "Feed" }
+                a { class: "nav-tab", onclick: move |_| on_friends.call(()), "Friends" }
+                a { class: "nav-tab", onclick: move |_| on_profile.call(()), "Profile" }
+                a { class: "nav-tab", onclick: move |_| on_prefs.call(()), "⚙" }
             }
             {children}
         }

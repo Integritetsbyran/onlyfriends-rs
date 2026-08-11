@@ -1,4 +1,4 @@
-use dioxus::{prelude::*, router::Navigator};
+use dioxus::prelude::*;
 
 use client_core::account::Store;
 use std::sync::Arc;
@@ -32,10 +32,16 @@ enum Route {
 
 #[component]
 pub fn App() -> Element {
-    use_context_provider(|| Signal::new(None::<context::AppAccount>));
-    use_context_provider(|| Signal::new(None::<context::ModalContent>));
+    rsx! {
+        document::Stylesheet { href: APP_CSS }
+        Router::<Route> {}
+    }
+}
 
-    let mut account = context::use_app_account();
+/// Shared layout. Shows the top-nav only when the user is logged in.
+#[component]
+fn AppLayout() -> Element {
+    let mut account = use_signal(|| None::<context::AppAccount>);
     let mut initialized = use_signal(|| false);
 
     use_effect(move || {
@@ -48,22 +54,6 @@ pub fn App() -> Element {
         });
     });
 
-    if !initialized() {
-        return rsx! {
-            document::Stylesheet { href: APP_CSS }
-            div { class: "loading", "Loading…" }
-        };
-    }
-
-    rsx! {
-        document::Stylesheet { href: APP_CSS }
-        Router::<Route> {}
-    }
-}
-
-/// Shared layout. Shows the top-nav only when the user is logged in.
-#[component]
-fn AppLayout() -> Element {
     let nav = use_navigator();
 
     rsx! {
@@ -72,6 +62,8 @@ fn AppLayout() -> Element {
             on_friends: move |_| { nav.push(Route::Friends {}); },
             on_profile: move |_| { nav.push(Route::Profile {}); },
             on_prefs: move |_| { nav.push(Route::Prefs {}); },
+            account_signal: account,
+            initialized,
             Outlet::<Route> {}
         }
     }
