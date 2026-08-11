@@ -75,18 +75,23 @@ fn AppLayout() -> Element {
     // can set it once registration or auto-login completes.
     use_context_provider(|| account);
 
+    let nav = use_navigator();
+
     use_effect(move || {
         let db_path = config::db_path().unwrap();
         spawn(async move {
             let store: Store = Arc::new(Mutex::new(SqliteStorage::open(&db_path).unwrap()));
-            if let Ok(Some(acc)) = client_core::Account::open(store).await {
-                account.set(Some(context::AppAccount::new(acc)));
+            match client_core::Account::open(store).await {
+                Ok(Some(acc)) => {
+                    account.set(Some(context::AppAccount::new(acc)));
+                    initialized.set(true);
+                }
+                _ => {
+                    nav.push(Route::Setup {});
+                }
             }
-            initialized.set(true);
         });
     });
-
-    let nav = use_navigator();
 
     if !initialized() {
         return rsx! { div { class: "loading", "Loading…" } };
@@ -103,12 +108,7 @@ fn AppLayout() -> Element {
                 Outlet::<Route> {}
             }
         },
-        None => rsx! {
-            div {
-                class: "loading",
-                "Loading..."
-            }
-        },
+        None => rsx! { div { class: "loading", "Loading…" } },
     }
 }
 
