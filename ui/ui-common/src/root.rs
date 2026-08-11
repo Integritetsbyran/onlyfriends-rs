@@ -8,10 +8,12 @@ pub fn AppRoot(
     on_friends: EventHandler<()>,
     on_profile: EventHandler<()>,
     on_prefs: EventHandler<()>,
-    account: Signal<AppAccount>,
+    account: AppAccount,
     children: Element,
 ) -> Element {
-    use_context_provider(|| account);
+    // Take ownership of account and wrap it in a signal so that it can be provided to descendants.
+    let account_signal = use_signal(|| account.clone());
+    use_context_provider(|| account_signal);
     use_context_provider(|| Signal::new(None::<ModalContent>));
 
     rsx! {

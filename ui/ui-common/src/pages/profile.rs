@@ -15,9 +15,7 @@ pub fn ProfilePage() -> Element {
 
     // Load own profile on mount.
     use_effect(move || {
-        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
-            return;
-        };
+        let arc = account.read().clone();
 
         spawn(async move {
             let result: client_core::Result<()> = async {
@@ -46,9 +44,7 @@ pub fn ProfilePage() -> Element {
             return;
         }
 
-        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
-            return;
-        };
+        let arc = account.read().clone();
 
         save_err.set(String::new());
         save_ok.set(false);

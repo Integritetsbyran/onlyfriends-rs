@@ -17,9 +17,7 @@ pub fn FeedPage() -> Element {
 
     // Auto-sync + load on mount.
     use_effect(move || {
-        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
-            return;
-        };
+        let arc = account.read().clone();
 
         syncing.set(true);
         sync_err.set(String::new());
@@ -43,9 +41,7 @@ pub fn FeedPage() -> Element {
 
     // Callback given to NewPostForm so it can reload the feed after posting.
     let refresh = move |_| {
-        let Some(arc) = account.read().as_ref().map(|a| a.clone()) else {
-            return;
-        };
+        let arc = account.read().clone();
 
         spawn(async move {
             let mut acc = arc.lock().await;

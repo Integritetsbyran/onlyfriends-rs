@@ -9,13 +9,13 @@ use ui::{APP_CSS, context, pages};
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 enum Route {
+    /// First-run onboarding.
+    #[route("/setup")]
+    Setup {},
     #[layout(AppLayout)]
         /// Startup guard — tries auto-login, then redirects.
         #[route("/")]
         Guard {},
-        /// First-run onboarding.
-        #[route("/setup")]
-        Setup {},
         /// Main feed.
         #[route("/feed")]
         Feed {},
@@ -38,17 +38,21 @@ pub fn App() -> Element {
     }
 }
 
-/// Shared layout. Shows the top-nav only when the user is logged in.
+/// Shared layout — owns the account lifecycle.
 #[component]
 fn AppLayout() -> Element {
     let mut account = use_signal(|| None::<context::AppAccount>);
     let mut initialized = use_signal(|| false);
 
+    // Make the writable optional signal available as context so the Setup route
+    // can set it once registration or auto-login completes.
+    use_context_provider(|| account);
+
     use_effect(move || {
         spawn(async move {
             let store: Store = Arc::new(Mutex::new(WebStorage::open("TMP").await.unwrap()));
             if let Ok(Some(acc)) = client_core::Account::open(store).await {
-                account.set(Some(Arc::new(Mutex::new(acc))));
+                account.set(Some(context::AppAccount::new(acc)));
             }
             initialized.set(true);
         });
@@ -56,16 +60,22 @@ fn AppLayout() -> Element {
 
     let nav = use_navigator();
 
-    rsx! {
-        ui::AppRoot {
-            on_feed: move |_| { nav.push(Route::Feed {}); },
-            on_friends: move |_| { nav.push(Route::Friends {}); },
-            on_profile: move |_| { nav.push(Route::Profile {}); },
-            on_prefs: move |_| { nav.push(Route::Prefs {}); },
-            account_signal: account,
-            initialized,
-            Outlet::<Route> {}
-        }
+    if !initialized() {
+        return rsx! { div { class: "loading", "Loading…" } };
+    }
+
+    match account() {
+        Some(acc) => rsx! {
+            ui::AppRoot {
+                on_feed: move |_| { nav.push(Route::Feed {}); },
+                on_friends: move |_| { nav.push(Route::Friends {}); },
+                on_profile: move |_| { nav.push(Route::Profile {}); },
+                on_prefs: move |_| { nav.push(Route::Prefs {}); },
+                account: acc,
+                Outlet::<Route> {}
+            }
+        },
+        None => rsx! { Outlet::<Route> {} },
     }
 }
 
@@ -105,7 +115,7 @@ fn Setup() -> Element {
     rsx! {
         if let Some(store) = storage() {
             pages::SetupPage {
-                on_complete: move |_| {
+                on_complete: move |()| {
                     nav.push(Route::Feed {});
                 },
                 get_storage: move || store.clone(),

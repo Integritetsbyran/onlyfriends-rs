@@ -8,6 +8,5 @@ dioxus = { workspace = true, features = ["router"] }
 ui = { workspace = true }
 
 [features]
-default = ["mobile"]
 mobile = ["dioxus/mobile"]
 
