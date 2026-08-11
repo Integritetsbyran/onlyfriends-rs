@@ -12,3 +12,4 @@ storage-sqlite = { workspace = true }
 keystone = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+onlyfriends-time.workspace = true
